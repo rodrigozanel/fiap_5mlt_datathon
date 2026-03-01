@@ -1,0 +1,72 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+eggs/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Data files
+data/raw/
+data/processed/
+*.csv
+*.xlsx
+*.xls
+*.zip
+
+# Model artifacts
+app/model/*.joblib
+app/model/*.pkl
+
+# Logs
+logs/
+*.log
+
+# Docker
+.docker/
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Coverage
+htmlcov/
+.coverage
+.coverage.*
+
+# Drive downloads
+drive-download-*/
+
+# PDF docs (original datathon docs)
+*.pdf
+
+# Poetry
+poetry.lock
+
+# SigNoz data (volumes)
+signoz/clickhouse/user_scripts/histogramQuantile
+
+# Misc
+*.bak
+*.tmp
