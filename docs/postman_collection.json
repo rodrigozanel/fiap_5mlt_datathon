@@ -1,0 +1,185 @@
+{
+  "info": {
+    "name": "Passos Magicos API",
+    "description": "Coleção de endpoints da API de Predição de Defasagem Escolar - Passos Mágicos",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/health",
+          "host": ["{{base_url}}"],
+          "path": ["health"]
+        },
+        "description": "Verifica se a API está rodando e se o modelo foi carregado."
+      },
+      "response": [
+        {
+          "name": "Healthy",
+          "status": "OK",
+          "code": 200,
+          "body": "{\"status\": \"healthy\", \"model_loaded\": true}"
+        }
+      ]
+    },
+    {
+      "name": "Predict - Aluno Risco Alto",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fase\": 2,\n  \"idade\": 15,\n  \"genero\": \"Masculino\",\n  \"ano_ingresso\": 2022,\n  \"inde\": 3.5,\n  \"pedra\": \"Quartzo\",\n  \"iaa\": 3.0,\n  \"ieg\": 2.5,\n  \"ips\": 4.0,\n  \"ida\": 2.8,\n  \"ipp\": 3.2,\n  \"ipv\": 2.0,\n  \"ian\": 2.5,\n  \"nota_mat\": 3.0,\n  \"nota_por\": 3.5,\n  \"nota_ing\": 2.0,\n  \"atingiu_pv\": false,\n  \"indicado_bolsa\": false\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/predict",
+          "host": ["{{base_url}}"],
+          "path": ["predict"]
+        },
+        "description": "Predição para um aluno com indicadores baixos (esperado: risco alto)."
+      },
+      "response": [
+        {
+          "name": "Risco Alto",
+          "status": "OK",
+          "code": 200,
+          "body": "{\"prediction\": 1, \"probability\": 0.82, \"risk_level\": \"alto\"}"
+        }
+      ]
+    },
+    {
+      "name": "Predict - Aluno Risco Baixo",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fase\": 5,\n  \"idade\": 14,\n  \"genero\": \"Feminino\",\n  \"ano_ingresso\": 2019,\n  \"inde\": 8.5,\n  \"pedra\": \"Ametista\",\n  \"iaa\": 8.0,\n  \"ieg\": 7.5,\n  \"ips\": 8.0,\n  \"ida\": 7.8,\n  \"ipp\": 7.5,\n  \"ipv\": 7.0,\n  \"ian\": 8.0,\n  \"nota_mat\": 8.0,\n  \"nota_por\": 8.5,\n  \"nota_ing\": 7.5,\n  \"atingiu_pv\": true,\n  \"indicado_bolsa\": true\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/predict",
+          "host": ["{{base_url}}"],
+          "path": ["predict"]
+        },
+        "description": "Predição para um aluno com indicadores altos (esperado: risco baixo)."
+      },
+      "response": [
+        {
+          "name": "Risco Baixo",
+          "status": "OK",
+          "code": 200,
+          "body": "{\"prediction\": 0, \"probability\": 0.12, \"risk_level\": \"baixo\"}"
+        }
+      ]
+    },
+    {
+      "name": "Predict - Aluno Risco Medio",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fase\": 3,\n  \"idade\": 14,\n  \"genero\": \"Feminino\",\n  \"ano_ingresso\": 2020,\n  \"inde\": 6.5,\n  \"pedra\": \"Ágata\",\n  \"iaa\": 7.2,\n  \"ieg\": 6.8,\n  \"ips\": 7.0,\n  \"ida\": 5.9,\n  \"ipp\": 6.5,\n  \"ipv\": 6.0,\n  \"ian\": 5.5,\n  \"nota_mat\": 6.0,\n  \"nota_por\": 7.0,\n  \"nota_ing\": 5.5,\n  \"atingiu_pv\": false,\n  \"indicado_bolsa\": false\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/predict",
+          "host": ["{{base_url}}"],
+          "path": ["predict"]
+        },
+        "description": "Predição para um aluno com indicadores medianos."
+      },
+      "response": [
+        {
+          "name": "Risco Medio",
+          "status": "OK",
+          "code": 200,
+          "body": "{\"prediction\": 1, \"probability\": 0.45, \"risk_level\": \"medio\"}"
+        }
+      ]
+    },
+    {
+      "name": "Predict - Input Invalido",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fase\": \"invalido\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/predict",
+          "host": ["{{base_url}}"],
+          "path": ["predict"]
+        },
+        "description": "Teste de validação - input inválido retorna 422."
+      },
+      "response": [
+        {
+          "name": "Validation Error",
+          "status": "Unprocessable Entity",
+          "code": 422,
+          "body": "{\"detail\": [{\"type\": \"int_parsing\", \"loc\": [\"body\", \"fase\"], \"msg\": \"Input should be a valid integer\"}]}"
+        }
+      ]
+    },
+    {
+      "name": "Swagger UI",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/docs",
+          "host": ["{{base_url}}"],
+          "path": ["docs"]
+        },
+        "description": "Abre a documentação interativa Swagger UI da API (abrir no navegador)."
+      },
+      "response": []
+    },
+    {
+      "name": "OpenAPI Schema",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/openapi.json",
+          "host": ["{{base_url}}"],
+          "path": ["openapi.json"]
+        },
+        "description": "Schema OpenAPI em JSON (usado pelo Swagger)."
+      },
+      "response": []
+    }
+  ]
+}
