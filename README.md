@@ -63,10 +63,104 @@ passos-magicos-ml/
 ## Instrucoes de Deploy
 
 ### Pre-requisitos
-- Docker e Docker Compose instalados
-- Python 3.13+ (para desenvolvimento local)
+- Python 3.13+ com [Poetry](https://python-poetry.org/)
+- Docker e Docker Compose (para deploy containerizado)
+- (macOS) `brew install libomp` (necessario para LightGBM)
 
-### Deploy com Docker (recomendado)
+### Passo a Passo Completo (do zero ate a API rodando)
+
+#### 1. Instalar dependencias
+
+```bash
+# Instalar todas as dependencias do projeto (incluindo dev)
+poetry install
+
+# (macOS apenas) Instalar libomp para o LightGBM funcionar
+brew install libomp
+```
+
+Isso cria um virtualenv automaticamente e instala: scikit-learn, lightgbm, pandas, fastapi, uvicorn, pytest, etc.
+
+#### 2. Rodar os testes (validar que tudo funciona)
+
+```bash
+poetry run pytest
+```
+
+Resultado esperado: **71 tests passed, 86% coverage**. Se o LightGBM nao estiver instalado, 1 teste sera pulado (ok).
+
+#### 3. Treinar o modelo com os dados reais
+
+Este e o passo que gera o arquivo `app/model/model.joblib` - sem ele a API nao consegue fazer predicoes.
+
+```bash
+# Coloque o XLSX na pasta data/raw/
+cp "drive-download-20260301T222743Z-1-001/BASE DE DADOS PEDE 2024 - DATATHON.xlsx" data/raw/
+
+# Rodar o script de treinamento
+poetry run python scripts/train_pipeline.py
+```
+
+**O que o script faz internamente:**
+1. **Carrega** as 3 abas do XLSX (PEDE2022, PEDE2023, PEDE2024) - ~3000 registros
+2. **Padroniza** os nomes de colunas (diferem entre anos: "Defas" vs "Defasagem", "Matem" vs "Mat", etc.)
+3. **Normaliza** genero ("Menina"/"Menino" -> "Feminino"/"Masculino") e booleanos ("Sim"/"Nao" -> 1/0)
+4. **Cria a variavel-alvo:** `target = 1` se defasagem > 0 (aluno em risco), `0` caso contrario
+5. **Aplica feature engineering:** media_notas, nota_min, anos_na_pm, pedra_encoded, indicadores_baixos, etc.
+6. **Trata dados faltantes:** mediana para numericos, "desconhecido" para categoricos
+7. **Divide** em treino/teste (estratificado 80/20)
+8. **Treina 3 modelos:** LightGBM, Random Forest, Logistic Regression
+9. **Compara** os modelos por F1-Score (weighted) e seleciona o melhor
+10. **Salva** o modelo vencedor em `app/model/model.joblib`
+11. **Imprime** metricas (F1, Accuracy, Precision, Recall, AUC-ROC) e classification report
+
+Saida esperada:
+```
+=== Passos Magicos - Training Pipeline ===
+Loading data from data/raw/BASE DE DADOS PEDE 2024 - DATATHON.xlsx...
+Combined dataset: XXXX rows, XX features
+Training lgbm... done
+Training rf... done
+Training lr... done
+
+=== Model Comparison ===
+          f1_weighted  accuracy  auc_roc
+lgbm         0.XXXX    0.XXXX   0.XXXX
+rf           0.XXXX    0.XXXX   0.XXXX
+lr           0.XXXX    0.XXXX   0.XXXX
+
+Best model: lgbm (F1=0.XXXX)
+Model saved to app/model/model.joblib
+```
+
+#### 4. Iniciar a API localmente
+
+```bash
+poetry run uvicorn app.main:app --reload --port 8000
+```
+
+Acesse:
+- **http://localhost:8000/health** - verificar se modelo carregou
+- **http://localhost:8000/docs** - Swagger UI interativo
+
+#### 5. Testar uma predicao
+
+```bash
+curl -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fase": 3, "idade": 14, "genero": "Feminino",
+    "ano_ingresso": 2020, "inde": 6.5, "pedra": "Agata",
+    "iaa": 7.2, "ieg": 6.8, "ips": 7.0, "ida": 5.9,
+    "ipp": 6.5, "ipv": 6.0, "ian": 5.5,
+    "nota_mat": 6.0, "nota_por": 7.0, "nota_ing": 5.5,
+    "atingiu_pv": false, "indicado_bolsa": false
+  }'
+```
+
+### Deploy com Docker
+
+Depois de treinar o modelo (passo 3), o arquivo `model.joblib` ja esta em `app/model/` e sera copiado para dentro da imagem Docker.
 
 ```bash
 # 1. Build da imagem
@@ -90,23 +184,24 @@ docker compose --profile signoz up -d
 |---------|-----|-----------|
 | API | http://localhost:8000 | Endpoints /predict e /health |
 | Swagger UI | http://localhost:8000/docs | Documentacao interativa da API |
+| ReDoc | http://localhost:8000/redoc | Documentacao alternativa da API |
 | Drift Dashboard | http://localhost:8501 | Monitoramento de drift (Streamlit) |
 | SigNoz | http://localhost:3301 | Observabilidade (traces, metricas, logs) |
 
-### Desenvolvimento local
+### Resumo dos Comandos
 
 ```bash
-# Instalar dependencias
+# Setup completo (uma vez)
 poetry install
+brew install libomp              # macOS apenas
+cp <XLSX> data/raw/
 
-# Rodar testes
-poetry run pytest
-
-# Treinar modelo
-poetry run python -m src.train
-
-# Iniciar API localmente
-poetry run uvicorn app.main:app --reload --port 8000
+# Pipeline de treino + deploy
+poetry run pytest                # validar testes
+poetry run python scripts/train_pipeline.py  # treinar modelo
+docker compose build             # build da imagem
+docker compose up api -d         # subir API
+curl http://localhost:8000/health  # verificar
 ```
 
 ---
