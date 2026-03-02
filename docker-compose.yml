@@ -1,0 +1,217 @@
+x-logging: &default-logging
+  options:
+    max-size: 50m
+    max-file: "3"
+
+x-clickhouse-defaults: &clickhouse-defaults
+  restart: unless-stopped
+  logging: *default-logging
+  image: clickhouse/clickhouse-server:24.8.5-alpine
+  tty: true
+  healthcheck:
+    test: ["CMD", "wget", "--spider", "-q", "0.0.0.0:8123/ping"]
+    interval: 30s
+    timeout: 5s
+    retries: 3
+  ulimits:
+    nproc: 65535
+    nofile:
+      soft: 262144
+      hard: 262144
+
+services:
+  # ==========================================================================
+  # Passos Magicos ML API
+  # ==========================================================================
+  app:
+    build: .
+    container_name: passos-magicos-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./logs:/app/logs
+      - ./app/model:/app/app/model
+    environment:
+      - PYTHONPATH=/app
+      - ENVIRONMENT=development
+      - LOG_LEVEL=INFO
+      # OpenTelemetry
+      - OTEL_SERVICE_NAME=passos-magicos-ml
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://signoz-otel-collector:4318}
+      - OTEL_LOG_LEVEL=info
+    command: >
+      opentelemetry-instrument uvicorn app.main:app --host 0.0.0.0 --port 8000
+    networks:
+      - app-network
+    restart: unless-stopped
+    depends_on:
+      signoz-otel-collector:
+        condition: service_started
+
+  # Drift monitoring dashboard
+  dashboard:
+    build: .
+    container_name: passos-magicos-dashboard
+    command: streamlit run monitoring/drift_dashboard.py --server.port 8501 --server.address 0.0.0.0
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - app-network
+    profiles: ["monitoring"]
+
+  # ==========================================================================
+  # SigNoz Observability Stack
+  # ==========================================================================
+  signoz-zookeeper:
+    image: zookeeper:3.9
+    container_name: signoz-zookeeper
+    restart: unless-stopped
+    logging: *default-logging
+    volumes:
+      - signoz-zookeeper-data:/data
+      - signoz-zookeeper-datalog:/datalog
+    environment:
+      - ZOO_MY_ID=1
+      - ZOO_4LW_COMMANDS_WHITELIST=ruok,stat
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | nc localhost 2181 | grep imok"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - app-network
+
+  signoz-init-clickhouse:
+    <<: *clickhouse-defaults
+    container_name: signoz-init-clickhouse
+    command:
+      - bash
+      - -c
+      - |
+        version="v0.0.1"
+        node_os=$$(uname -s | tr '[:upper:]' '[:lower:]')
+        node_arch=$$(uname -m | sed s/aarch64/arm64/ | sed s/x86_64/amd64/)
+        cd /tmp
+        wget -O histogram-quantile.tar.gz "https://github.com/SigNoz/signoz/releases/download/histogram-quantile%2F$${version}/histogram-quantile_$${node_os}_$${node_arch}.tar.gz"
+        tar -xvzf histogram-quantile.tar.gz
+        mv histogram-quantile /var/lib/clickhouse/user_scripts/histogramQuantile
+    restart: on-failure
+    volumes:
+      - ./signoz/clickhouse/user_scripts:/var/lib/clickhouse/user_scripts/
+    networks:
+      - app-network
+
+  signoz-clickhouse:
+    <<: *clickhouse-defaults
+    container_name: signoz-clickhouse
+    depends_on:
+      signoz-init-clickhouse:
+        condition: service_completed_successfully
+      signoz-zookeeper:
+        condition: service_healthy
+    volumes:
+      - ./signoz/clickhouse/config.xml:/etc/clickhouse-server/config.xml
+      - ./signoz/clickhouse/users.xml:/etc/clickhouse-server/users.xml
+      - ./signoz/clickhouse/custom-function.xml:/etc/clickhouse-server/custom-function.xml
+      - ./signoz/clickhouse/user_scripts:/var/lib/clickhouse/user_scripts/
+      - ./signoz/clickhouse/cluster.xml:/etc/clickhouse-server/config.d/cluster.xml
+      - signoz-clickhouse-data:/var/lib/clickhouse/
+    environment:
+      - CLICKHOUSE_SKIP_USER_SETUP=1
+    networks:
+      - app-network
+
+  signoz-schema-migrator-sync:
+    image: signoz/signoz-schema-migrator:${SIGNOZ_OTELCOL_TAG:-v0.129.8}
+    container_name: signoz-schema-migrator-sync
+    restart: on-failure
+    logging: *default-logging
+    command: [sync, --dsn=tcp://signoz-clickhouse:9000, --up=]
+    depends_on:
+      signoz-clickhouse:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  signoz-schema-migrator-async:
+    image: signoz/signoz-schema-migrator:${SIGNOZ_OTELCOL_TAG:-v0.129.8}
+    container_name: signoz-schema-migrator-async
+    restart: on-failure
+    logging: *default-logging
+    command: [async, --dsn=tcp://signoz-clickhouse:9000, --up=]
+    depends_on:
+      signoz-clickhouse:
+        condition: service_healthy
+      signoz-schema-migrator-sync:
+        condition: service_completed_successfully
+    networks:
+      - app-network
+
+  signoz:
+    image: signoz/signoz:${SIGNOZ_VERSION:-v0.101.0}
+    container_name: signoz
+    restart: unless-stopped
+    logging: *default-logging
+    command: [--config=/root/config/prometheus.yml]
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./signoz/prometheus.yml:/root/config/prometheus.yml
+      - ./signoz/dashboards:/root/config/dashboards
+      - signoz-sqlite-data:/var/lib/signoz/
+    environment:
+      - SIGNOZ_ALERTMANAGER_PROVIDER=signoz
+      - SIGNOZ_TELEMETRYSTORE_CLICKHOUSE_DSN=tcp://signoz-clickhouse:9000
+      - SIGNOZ_SQLSTORE_SQLITE_PATH=/var/lib/signoz/signoz.db
+      - DASHBOARDS_PATH=/root/config/dashboards
+      - STORAGE=clickhouse
+      - GODEBUG=netdns=go
+      - TELEMETRY_ENABLED=true
+      - DEPLOYMENT_TYPE=docker-standalone-amd
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "localhost:8080/api/v1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      signoz-clickhouse:
+        condition: service_healthy
+      signoz-schema-migrator-sync:
+        condition: service_completed_successfully
+    networks:
+      - app-network
+
+  signoz-otel-collector:
+    image: signoz/signoz-otel-collector:${SIGNOZ_OTELCOL_TAG:-v0.129.8}
+    container_name: signoz-otel-collector
+    restart: unless-stopped
+    logging: *default-logging
+    command:
+      - --config=/etc/otel-collector-config.yaml
+      - --feature-gates=-pkg.translator.prometheus.NormalizeName
+    volumes:
+      - ./signoz/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    environment:
+      - OTEL_RESOURCE_ATTRIBUTES=host.name=signoz-host,os.type=linux
+      - LOW_CARDINAL_EXCEPTION_GROUPING=false
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    depends_on:
+      signoz:
+        condition: service_healthy
+    networks:
+      - app-network
+
+volumes:
+  signoz-zookeeper-data:
+  signoz-zookeeper-datalog:
+  signoz-clickhouse-data:
+  signoz-sqlite-data:
+
+networks:
+  app-network:
+    driver: bridge
