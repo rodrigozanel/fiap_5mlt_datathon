@@ -63,45 +63,36 @@ passos-magicos-ml/
 ## Instrucoes de Deploy
 
 ### Pre-requisitos
-- Python 3.13+ com [Poetry](https://python-poetry.org/)
-- Docker e Docker Compose (para deploy containerizado)
-- (macOS) `brew install libomp` (necessario para LightGBM)
+- **Docker e Docker Compose** - unico requisito obrigatorio
+- Python 3.13+ com Poetry (opcional, apenas para desenvolvimento local)
 
-### Passo a Passo Completo (do zero ate a API rodando)
+> **Nota:** Nao e necessario instalar Python, LightGBM ou qualquer dependencia localmente. Tudo roda dentro do Docker (Linux), onde o LightGBM funciona nativamente.
 
-#### 1. Instalar dependencias
+### Passo a Passo Completo via Docker (do zero ate a API rodando)
 
-```bash
-# Instalar todas as dependencias do projeto (incluindo dev)
-poetry install
+Sao apenas **4 comandos**:
 
-# (macOS apenas) Instalar libomp para o LightGBM funcionar
-brew install libomp
-```
-
-Isso cria um virtualenv automaticamente e instala: scikit-learn, lightgbm, pandas, fastapi, uvicorn, pytest, etc.
-
-#### 2. Rodar os testes (validar que tudo funciona)
+#### 1. Copiar o dataset para `data/raw/`
 
 ```bash
-poetry run pytest
-```
-
-Resultado esperado: **71 tests passed, 86% coverage**. Se o LightGBM nao estiver instalado, 1 teste sera pulado (ok).
-
-#### 3. Treinar o modelo com os dados reais
-
-Este e o passo que gera o arquivo `app/model/model.joblib` - sem ele a API nao consegue fazer predicoes.
-
-```bash
-# Coloque o XLSX na pasta data/raw/
 cp "drive-download-20260301T222743Z-1-001/BASE DE DADOS PEDE 2024 - DATATHON.xlsx" data/raw/
-
-# Rodar o script de treinamento
-poetry run python scripts/train_pipeline.py
 ```
 
-**O que o script faz internamente:**
+#### 2. Build da imagem Docker
+
+```bash
+docker compose build
+```
+
+Isso cria a imagem com Python 3.13, LightGBM, scikit-learn, FastAPI e todas as dependencias. Leva ~2-3 minutos na primeira vez.
+
+#### 3. Treinar o modelo (dentro do Docker)
+
+```bash
+docker compose --profile train run --rm train
+```
+
+Este comando sobe um container temporario que:
 1. **Carrega** as 3 abas do XLSX (PEDE2022, PEDE2023, PEDE2024) - ~3000 registros
 2. **Padroniza** os nomes de colunas (diferem entre anos: "Defas" vs "Defasagem", "Matem" vs "Mat", etc.)
 3. **Normaliza** genero ("Menina"/"Menino" -> "Feminino"/"Masculino") e booleanos ("Sim"/"Nao" -> 1/0)
@@ -112,7 +103,6 @@ poetry run python scripts/train_pipeline.py
 8. **Treina 3 modelos:** LightGBM, Random Forest, Logistic Regression
 9. **Compara** os modelos por F1-Score (weighted) e seleciona o melhor
 10. **Salva** o modelo vencedor em `app/model/model.joblib`
-11. **Imprime** metricas (F1, Accuracy, Precision, Recall, AUC-ROC) e classification report
 
 Saida esperada:
 ```
@@ -133,15 +123,20 @@ Best model: lgbm (F1=0.XXXX)
 Model saved to app/model/model.joblib
 ```
 
-#### 4. Iniciar a API localmente
+O container e removido automaticamente (`--rm`), mas o `model.joblib` persiste na sua maquina em `app/model/` via volume mount.
+
+#### 4. Subir a API
 
 ```bash
-poetry run uvicorn app.main:app --reload --port 8000
+docker compose up app -d
 ```
+
+Pronto! A API esta rodando em **http://localhost:8000**.
 
 Acesse:
 - **http://localhost:8000/health** - verificar se modelo carregou
-- **http://localhost:8000/docs** - Swagger UI interativo
+- **http://localhost:8000/docs** - Swagger UI interativo (testar endpoints pelo navegador)
+- **http://localhost:8000/redoc** - Documentacao ReDoc
 
 #### 5. Testar uma predicao
 
@@ -158,50 +153,67 @@ curl -X POST http://localhost:8000/predict \
   }'
 ```
 
-### Deploy com Docker
-
-Depois de treinar o modelo (passo 3), o arquivo `model.joblib` ja esta em `app/model/` e sera copiado para dentro da imagem Docker.
+### Servicos Opcionais
 
 ```bash
-# 1. Build da imagem
-docker compose build
-
-# 2. Subir a API
-docker compose up api -d
-
-# 3. Verificar se esta rodando
-curl http://localhost:8000/health
-
-# 4. (Opcional) Subir o dashboard de drift
+# Dashboard de monitoramento de drift (Streamlit)
 docker compose --profile monitoring up dashboard -d
+# -> http://localhost:8501
 
-# 5. (Opcional) Subir stack de observabilidade SigNoz
+# Stack completa de observabilidade (SigNoz + OTel Collector)
 docker compose --profile signoz up -d
+# -> http://localhost:8080 (SigNoz UI)
 ```
 
-**Servicos disponiveis:**
-| Servico | URL | Descricao |
-|---------|-----|-----------|
-| API | http://localhost:8000 | Endpoints /predict e /health |
-| Swagger UI | http://localhost:8000/docs | Documentacao interativa da API |
-| ReDoc | http://localhost:8000/redoc | Documentacao alternativa da API |
-| Drift Dashboard | http://localhost:8501 | Monitoramento de drift (Streamlit) |
-| SigNoz | http://localhost:3301 | Observabilidade (traces, metricas, logs) |
+**Todos os servicos:**
+| Servico | URL | Comando |
+|---------|-----|---------|
+| API | http://localhost:8000 | `docker compose up app -d` |
+| Swagger UI | http://localhost:8000/docs | (incluso na API) |
+| Drift Dashboard | http://localhost:8501 | `docker compose --profile monitoring up -d` |
+| SigNoz | http://localhost:8080 | `docker compose --profile signoz up -d` |
 
-### Resumo dos Comandos
+### Resumo - Todos os Comandos
 
 ```bash
-# Setup completo (uma vez)
-poetry install
-brew install libomp              # macOS apenas
-cp <XLSX> data/raw/
+# 1. Copiar dados
+cp "<caminho>/BASE DE DADOS PEDE 2024 - DATATHON.xlsx" data/raw/
 
-# Pipeline de treino + deploy
-poetry run pytest                # validar testes
-poetry run python scripts/train_pipeline.py  # treinar modelo
-docker compose build             # build da imagem
-docker compose up api -d         # subir API
-curl http://localhost:8000/health  # verificar
+# 2. Build
+docker compose build
+
+# 3. Treinar modelo (dentro do Docker)
+docker compose --profile train run --rm train
+
+# 4. Subir API
+docker compose up app -d
+
+# 5. Verificar
+curl http://localhost:8000/health
+
+# Parar tudo
+docker compose down
+```
+
+### Desenvolvimento Local (alternativa sem Docker)
+
+Para quem prefere rodar localmente sem Docker:
+
+```bash
+# Instalar dependencias
+poetry install
+
+# (macOS) Instalar libomp para LightGBM
+brew install libomp
+
+# Rodar testes
+poetry run pytest
+
+# Treinar modelo
+poetry run python scripts/train_pipeline.py
+
+# Iniciar API
+poetry run uvicorn app.main:app --reload --port 8000
 ```
 
 ---
