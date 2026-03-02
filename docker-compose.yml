@@ -21,8 +21,22 @@ x-clickhouse-defaults: &clickhouse-defaults
 
 services:
   # ==========================================================================
-  # Passos Magicos ML API
+  # Passos Magicos ML - Training & API
   # ==========================================================================
+
+  # One-shot: trains the model and saves to app/model/model.joblib
+  train:
+    build: .
+    container_name: passos-magicos-train
+    volumes:
+      - ./data/raw:/app/data/raw:ro
+      - ./app/model:/app/app/model
+    environment:
+      - PYTHONPATH=/app
+    command: python scripts/train_pipeline.py
+    profiles: ["train"]
+
+  # API server
   app:
     build: .
     container_name: passos-magicos-api
@@ -35,19 +49,16 @@ services:
       - PYTHONPATH=/app
       - ENVIRONMENT=development
       - LOG_LEVEL=INFO
-      # OpenTelemetry
+      # OpenTelemetry (funciona com ou sem SigNoz)
       - OTEL_SERVICE_NAME=passos-magicos-ml
       - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
       - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://signoz-otel-collector:4318}
       - OTEL_LOG_LEVEL=info
     command: >
-      opentelemetry-instrument uvicorn app.main:app --host 0.0.0.0 --port 8000
+      uvicorn app.main:app --host 0.0.0.0 --port 8000
     networks:
       - app-network
     restart: unless-stopped
-    depends_on:
-      signoz-otel-collector:
-        condition: service_started
 
   # Drift monitoring dashboard
   dashboard:
