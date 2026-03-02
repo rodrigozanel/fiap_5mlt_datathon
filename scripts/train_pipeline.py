@@ -16,7 +16,7 @@ logger = get_logger("train_pipeline")
 
 DATA_FILE = "BASE DE DADOS PEDE 2024 - DATATHON.xlsx"
 SPLIT_STRATEGY = "stratified"  # "stratified" or "temporal"
-MODEL_TYPES = ["rf", "lr"]  # Add "lgbm" if libomp is installed
+MODEL_TYPES = ["xgb", "rf", "lr"]  # Always available
 
 
 def _try_lgbm() -> bool:
