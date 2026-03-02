@@ -1,6 +1,7 @@
 # ML
 scikit-learn>=1.4
 lightgbm>=4.0
+xgboost>=2.0
 pandas>=2.2
 numpy>=1.26
 joblib>=1.3

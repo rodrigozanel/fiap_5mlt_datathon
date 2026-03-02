@@ -29,6 +29,16 @@ def _get_model(model_type: str) -> Any:
         return RandomForestClassifier(
             n_estimators=200, random_state=42, n_jobs=-1
         )
+    elif model_type == "xgb":
+        from xgboost import XGBClassifier
+
+        return XGBClassifier(
+            n_estimators=200,
+            eval_metric="logloss",
+            verbosity=0,
+            random_state=42,
+            n_jobs=-1,
+        )
     elif model_type == "lr":
         return LogisticRegression(
             max_iter=1000, random_state=42, solver="lbfgs"
@@ -83,6 +93,11 @@ def tune_hyperparameters(
             "classifier__max_depth": [3, 5, 7, -1],
             "classifier__learning_rate": [0.01, 0.05, 0.1],
             "classifier__num_leaves": [15, 31, 63],
+        },
+        "xgb": {
+            "classifier__n_estimators": [100, 200, 500],
+            "classifier__max_depth": [3, 5, 7],
+            "classifier__learning_rate": [0.01, 0.05, 0.1],
         },
         "rf": {
             "classifier__n_estimators": [100, 200, 500],
