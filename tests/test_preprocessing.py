@@ -137,6 +137,17 @@ class TestHandleMissing:
         result = handle_missing(df)
         assert result["b"].iloc[1] == "desconhecido"
 
+    def test_numeric_strings_are_coerced_and_filled(self):
+        df = pd.DataFrame(
+            {
+                "inde": ["6.5", None, "7.5"],
+                "idade": ["13", "14", None],
+            }
+        )
+        result = handle_missing(df)
+        assert result["inde"].iloc[1] == 7.0
+        assert result["idade"].iloc[2] == 13.5
+
 
 class TestBuildPreprocessingPipeline:
     def test_returns_column_transformer(self):
