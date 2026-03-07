@@ -1,0 +1,119 @@
+{
+  "info": {
+    "_postman_id": "0a219d71-aa33-4957-9c01-28515a95e296",
+    "name": "FIAP - Datathon",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "43695660",
+    "_collection_link": "https://go.postman.co/collection/43695660-0a219d71-aa33-4957-9c01-28515a95e296?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "Login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Save access_token to environment\", () => {",
+              "    pm.response.to.have.status(200);",
+              "",
+              "    const body = pm.response.json();",
+              "",
+              "    const token =",
+              "        body.access_token ??",
+              "        body.token ??",
+              "        body?.data?.access_token ??",
+              "        body?.data?.token;",
+              "",
+              "    pm.expect(token, \"access token missing in response\").to.be.a(\"string\").and.not.empty;",
+              "",
+              "    pm.environment.set(\"access_token\", token);",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"username\": \"admin\",\n    \"password\": \"passos-magicos\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseURL}}:{{port}}/api/v1/auth/login",
+          "host": [
+            "{{baseURL}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "v1",
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Predict",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"fase\": 3,\n    \"idade\": 14,\n    \"genero\": \"Feminino\",\n    \"ano_ingresso\": 2020,\n    \"inde\": 6.5,\n    \"pedra\": \"Agata\",\n    \"iaa\": 7.2,\n    \"ieg\": 6.8,\n    \"ips\": 7.0,\n    \"ida\": 5.9,\n    \"ipp\": 6.5,\n    \"ipv\": 6.0,\n    \"ian\": 5.5,\n    \"nota_mat\": 6.0,\n    \"nota_por\": 7.0,\n    \"nota_ing\": 5.5,\n    \"atingiu_pv\": false,\n    \"indicado_bolsa\": false\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseURL}}:{{port}}/api/v1/predict",
+          "host": [
+            "{{baseURL}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "v1",
+            "predict"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}
