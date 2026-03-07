@@ -261,6 +261,13 @@ def handle_missing(df: pd.DataFrame) -> pd.DataFrame:
     """Handle missing values in the dataset."""
     result = df.copy()
 
+    # Coerce expected numeric model features that may come as strings
+    # (e.g. "idade" or "inde" parsed from Excel as object dtype).
+    numeric_candidates = NUMERIC_FEATURES + BOOLEAN_FEATURES + ["ano", "target"]
+    for col in numeric_candidates:
+        if col in result.columns:
+            result[col] = pd.to_numeric(result[col], errors="coerce")
+
     # Numeric columns: fill with median
     num_cols = result.select_dtypes(include=[np.number]).columns
     for col in num_cols:
@@ -308,6 +315,9 @@ def build_preprocessing_pipeline() -> ColumnTransformer:
         ],
         remainder="drop",
     )
+    # Preserve transformed feature names so downstream estimators
+    # (notably LightGBM) see consistent named inputs on fit/predict.
+    preprocessor.set_output(transform="pandas")
     return preprocessor
 
 

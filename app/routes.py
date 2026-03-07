@@ -8,6 +8,7 @@ import pandas as pd
 from fastapi import APIRouter, HTTPException
 
 from app.schemas import HealthResponse, PredictionOutput, StudentInput
+from monitoring.logger import log_prediction
 from src.feature_engineering import (
     create_academic_features,
     create_context_features,
@@ -105,6 +106,14 @@ def predict(student: StudentInput):
     logger.info(
         f"prediction={prediction} probability={probability:.4f} "
         f"risk={risk_level} latency={latency_ms:.1f}ms"
+    )
+
+    log_prediction(
+        input_data=student.model_dump(),
+        prediction=prediction,
+        probability=probability,
+        risk_level=risk_level,
+        latency_ms=latency_ms,
     )
 
     return PredictionOutput(
