@@ -61,32 +61,91 @@ def client_with_model(dummy_model):
     return TestClient(app, raise_server_exceptions=False)
 
 
+@pytest.fixture
+def auth_token(client):
+    """Valid JWT token from login endpoint."""
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"username": "admin", "password": "passos-magicos"},
+    )
+    return response.json()["access_token"]
+
+
+@pytest.fixture
+def auth_headers(auth_token):
+    """Authorization headers with valid token."""
+    return {"Authorization": f"Bearer {auth_token}"}
+
+
 class TestHealth:
     def test_health_returns_200(self, client):
-        response = client.get("/health")
+        response = client.get("/api/v1/health")
         assert response.status_code == 200
 
     def test_health_without_model(self, client):
-        data = client.get("/health").json()
+        data = client.get("/api/v1/health").json()
         assert data["status"] == "healthy"
         assert data["model_loaded"] is False
 
     def test_health_with_model(self, client_with_model):
-        data = client_with_model.get("/health").json()
+        data = client_with_model.get("/api/v1/health").json()
         assert data["model_loaded"] is True
 
 
+class TestAuth:
+    def test_login_valid_credentials(self, client):
+        response = client.post(
+            "/api/v1/auth/login",
+            json={"username": "admin", "password": "passos-magicos"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "access_token" in data
+        assert data["token_type"] == "bearer"
+
+    def test_login_invalid_password(self, client):
+        response = client.post(
+            "/api/v1/auth/login",
+            json={"username": "admin", "password": "wrong"},
+        )
+        assert response.status_code == 401
+
+    def test_login_invalid_username(self, client):
+        response = client.post(
+            "/api/v1/auth/login",
+            json={"username": "hacker", "password": "passos-magicos"},
+        )
+        assert response.status_code == 401
+
+
 class TestPredict:
-    def test_predict_no_model_returns_503(self, client, sample_student_input):
-        response = client.post("/predict", json=sample_student_input)
+    def test_predict_no_auth_returns_401(self, client_with_model, sample_student_input):
+        response = client_with_model.post("/api/v1/predict", json=sample_student_input)
+        assert response.status_code == 401
+
+    def test_predict_invalid_token_returns_401(self, client_with_model, sample_student_input):
+        headers = {"Authorization": "Bearer invalidtoken"}
+        response = client_with_model.post(
+            "/api/v1/predict", json=sample_student_input, headers=headers
+        )
+        assert response.status_code == 401
+
+    def test_predict_no_model_returns_503(self, client, auth_headers, sample_student_input):
+        response = client.post(
+            "/api/v1/predict", json=sample_student_input, headers=auth_headers
+        )
         assert response.status_code == 503
 
-    def test_predict_returns_200(self, client_with_model, sample_student_input):
-        response = client_with_model.post("/predict", json=sample_student_input)
+    def test_predict_returns_200(self, client_with_model, auth_headers, sample_student_input):
+        response = client_with_model.post(
+            "/api/v1/predict", json=sample_student_input, headers=auth_headers
+        )
         assert response.status_code == 200
 
-    def test_predict_response_schema(self, client_with_model, sample_student_input):
-        data = client_with_model.post("/predict", json=sample_student_input).json()
+    def test_predict_response_schema(self, client_with_model, auth_headers, sample_student_input):
+        data = client_with_model.post(
+            "/api/v1/predict", json=sample_student_input, headers=auth_headers
+        ).json()
         assert "prediction" in data
         assert "probability" in data
         assert "risk_level" in data
@@ -94,12 +153,16 @@ class TestPredict:
         assert 0.0 <= data["probability"] <= 1.0
         assert data["risk_level"] in ("baixo", "medio", "alto")
 
-    def test_predict_invalid_input_returns_422(self, client_with_model):
-        response = client_with_model.post("/predict", json={"fase": "invalid"})
+    def test_predict_invalid_input_returns_422(self, client_with_model, auth_headers):
+        response = client_with_model.post(
+            "/api/v1/predict", json={"fase": "invalid"}, headers=auth_headers
+        )
         assert response.status_code == 422
 
-    def test_predict_missing_required_field(self, client_with_model):
-        response = client_with_model.post("/predict", json={"fase": 3})
+    def test_predict_missing_required_field(self, client_with_model, auth_headers):
+        response = client_with_model.post(
+            "/api/v1/predict", json={"fase": 3}, headers=auth_headers
+        )
         assert response.status_code == 422
 
 
