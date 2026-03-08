@@ -79,6 +79,8 @@ services:
     volumes:
       - ./logs:/app/logs
       - ./app/model:/app/app/model
+      - ./data/raw:/app/data/raw:ro
+      - ./feature_store:/app/feature_store
     environment:
       - PYTHONPATH=/app
       - ENVIRONMENT=production
@@ -87,6 +89,8 @@ services:
       - API_USERNAME=${API_USERNAME:-admin}
       - API_PASSWORD=${API_PASSWORD:-passos-magicos}
       - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - USE_FEATURE_STORE=${USE_FEATURE_STORE:-false}
       - OTEL_SERVICE_NAME=passos-magicos-ml
       - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://signoz-otel-collector:4318

@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Passos Magicos - Training Pipeline</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --primary-light: #dbeafe;
+      --danger: #dc2626;
+      --success: #16a34a;
+      --warning: #f59e0b;
+      --bg: #f8fafc;
+      --card: #fff;
+      --border: #e2e8f0;
+      --text: #1e293b;
+      --muted: #64748b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+
+    .header {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: #fff;
+      padding: 1.5rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header h1 { font-size: 1.25rem; font-weight: 600; }
+    .header a { color: rgba(255,255,255,0.9); text-decoration: none; font-size: 0.875rem; }
+    .header a:hover { color: #fff; }
+
+    .container { max-width: 960px; margin: 0 auto; padding: 1.5rem; }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .controls {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .form-group { display: flex; flex-direction: column; gap: 0.25rem; }
+    .form-group label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .form-group input { padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px; font-size: 0.9rem; width: 200px; }
+
+    .btn {
+      padding: 0.6rem 1.5rem;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.3rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    .status-badge.idle { background: #f1f5f9; color: var(--muted); }
+    .status-badge.running { background: #fef3c7; color: #92400e; }
+    .status-badge.success { background: #dcfce7; color: #166534; }
+    .status-badge.error { background: #fee2e2; color: #991b1b; }
+
+    .terminal {
+      background: #0f172a;
+      color: #e2e8f0;
+      border-radius: 8px;
+      padding: 1rem;
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 0.8rem;
+      line-height: 1.7;
+      height: 500px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .terminal .line-success { color: #4ade80; }
+    .terminal .line-error { color: #f87171; }
+    .terminal .line-info { color: #60a5fa; }
+    .terminal .line-warning { color: #fbbf24; }
+    .terminal .line-highlight { color: #c084fc; font-weight: 600; }
+    .terminal .cursor {
+      display: inline-block;
+      width: 8px;
+      height: 14px;
+      background: #e2e8f0;
+      animation: blink 1s step-end infinite;
+      vertical-align: middle;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    .help-text { font-size: 0.8rem; color: var(--muted); margin-top: 0.5rem; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Training Pipeline</h1>
+  <a href="/">&larr; Voltar</a>
+</div>
+
+<div class="container">
+
+  <!-- Auth + Controls -->
+  <div class="card">
+    <div class="controls">
+      <div class="form-group">
+        <label>Usuario</label>
+        <input type="text" id="username" value="admin">
+      </div>
+      <div class="form-group">
+        <label>Senha</label>
+        <input type="password" id="password" value="passos-magicos">
+      </div>
+      <button class="btn btn-primary" id="btn-train" onclick="startTraining()">Iniciar Treinamento</button>
+      <span class="status-badge idle" id="status-badge">Aguardando</span>
+    </div>
+    <p class="help-text">
+      Treina 4 modelos (LightGBM, XGBoost, Random Forest, Logistic Regression), compara e salva o melhor.
+      Metricas e artefatos sao registrados no MLflow.
+    </p>
+  </div>
+
+  <!-- Terminal Output -->
+  <div class="card" style="padding: 0; overflow: hidden;">
+    <div class="terminal" id="terminal">
+      <span style="color: var(--muted);">Terminal de treinamento. Clique em "Iniciar Treinamento" para comecar.</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const isDevMode = window.location.port === '3000';
+const API_BASE = isDevMode ? `http://${window.location.hostname}:8000/api/v1` : '/api/v1';
+
+let token = null;
+let eventSource = null;
+
+function setStatus(status, text) {
+  const badge = document.getElementById('status-badge');
+  badge.className = `status-badge ${status}`;
+  badge.textContent = text;
+}
+
+function appendLine(text) {
+  const terminal = document.getElementById('terminal');
+
+  const line = document.createElement('div');
+
+  // Colorize based on content
+  if (text.startsWith('[DONE]')) {
+    line.className = 'line-success';
+  } else if (text.startsWith('[ERROR]')) {
+    line.className = 'line-error';
+  } else if (text.startsWith('===') || text.startsWith('Best model')) {
+    line.className = 'line-highlight';
+  } else if (text.includes('WARNING') || text.includes('WARN')) {
+    line.className = 'line-warning';
+  } else if (text.includes('MLflow:') || text.includes('View run') || text.includes('View experiment')) {
+    line.className = 'line-info';
+  }
+
+  line.textContent = text;
+  terminal.appendChild(line);
+  terminal.scrollTop = terminal.scrollHeight;
+}
+
+async function login() {
+  const username = document.getElementById('username').value;
+  const password = document.getElementById('password').value;
+
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({username, password})
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || 'Login failed');
+  }
+
+  const data = await res.json();
+  token = data.access_token;
+}
+
+async function startTraining() {
+  const btn = document.getElementById('btn-train');
+  const terminal = document.getElementById('terminal');
+
+  // Clear terminal
+  terminal.innerHTML = '';
+
+  try {
+    // Login first
+    appendLine('Autenticando...');
+    await login();
+    appendLine('Autenticado com sucesso.\n');
+
+    btn.disabled = true;
+    setStatus('running', 'Treinando...');
+    appendLine('Iniciando pipeline de treinamento...\n');
+
+    // Connect to SSE endpoint
+    const url = `${API_BASE}/train`;
+
+    const response = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.detail || `HTTP ${response.status}`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, {stream: true});
+      const lines = buffer.split('\n');
+      buffer = lines.pop(); // Keep incomplete line in buffer
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const text = line.slice(6);
+          appendLine(text);
+
+          if (text.startsWith('[DONE]')) {
+            setStatus('success', 'Concluido');
+            btn.disabled = false;
+          } else if (text.startsWith('[ERROR]')) {
+            setStatus('error', 'Erro');
+            btn.disabled = false;
+          }
+        }
+      }
+    }
+
+    // Handle case where stream ends without [DONE]
+    if (document.getElementById('status-badge').textContent === 'Treinando...') {
+      setStatus('success', 'Concluido');
+      btn.disabled = false;
+    }
+
+  } catch (e) {
+    appendLine(`\n[ERROR] ${e.message}`);
+    setStatus('error', 'Erro');
+    btn.disabled = false;
+  }
+}
+</script>
+
+</body>
+</html>

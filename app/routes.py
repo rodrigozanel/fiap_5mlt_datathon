@@ -1,10 +1,13 @@
 """API routes for prediction, health check, and authentication."""
 
+import asyncio
 import os
+import subprocess
 import time
 
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from opentelemetry.trace import StatusCode
 
 from app.auth import create_access_token, get_current_user, verify_credentials
@@ -32,6 +35,7 @@ router = APIRouter(prefix="/api/v1")
 # Model is set by main.py on startup
 _model = None
 _feature_store = None
+_training_in_progress = False
 
 USE_FEATURE_STORE = os.getenv("USE_FEATURE_STORE", "false").lower() == "true"
 
@@ -194,3 +198,53 @@ def predict(student: StudentInput, _: str = Depends(get_current_user)):
             probability=round(probability, 4),
             risk_level=risk_level,
         )
+
+
+@router.get("/train")
+async def train_model(_: str = Depends(get_current_user)):
+    """Run the training pipeline and stream output via SSE. Requires Bearer token."""
+    global _training_in_progress
+    if _training_in_progress:
+        raise HTTPException(status_code=409, detail="Training already in progress")
+
+    async def stream_training():
+        global _training_in_progress
+        _training_in_progress = True
+        try:
+            env = {
+                **os.environ,
+                "PYTHONPATH": "/app",
+                "PYTHONUNBUFFERED": "1",
+                "MLFLOW_TRACKING_URI": os.getenv(
+                    "MLFLOW_TRACKING_URI", "http://mlflow:5000"
+                ),
+            }
+            process = subprocess.Popen(
+                ["python", "scripts/train_pipeline.py"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                env=env,
+            )
+            for line in iter(process.stdout.readline, ""):
+                yield f"data: {line.rstrip()}\n\n"
+                await asyncio.sleep(0)
+            process.wait()
+            if process.returncode == 0:
+                yield "data: [DONE] Training completed successfully.\n\n"
+            else:
+                yield f"data: [ERROR] Training failed with exit code {process.returncode}.\n\n"
+        except Exception as e:
+            yield f"data: [ERROR] {str(e)}\n\n"
+        finally:
+            _training_in_progress = False
+
+    return StreamingResponse(
+        stream_training(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )

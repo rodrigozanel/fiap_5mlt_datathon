@@ -20,6 +20,11 @@ def index():
     return (STATIC_DIR / "index.html").read_text()
 
 
+@app.get("/train", response_class=HTMLResponse)
+def train_page():
+    return (STATIC_DIR / "train.html").read_text()
+
+
 @app.get("/history")
 def get_history():
     if not HISTORY_FILE.exists():

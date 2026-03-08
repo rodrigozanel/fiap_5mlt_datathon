@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from opentelemetry.trace import StatusCode
 
 from app.routes import init_feature_store, router, set_model
@@ -55,6 +56,13 @@ app = FastAPI(
     description="API para predicao de risco de defasagem escolar de estudantes da Associacao Passos Magicos",
     version="0.1.0",
     lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(router)
