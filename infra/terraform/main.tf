@@ -59,13 +59,6 @@ resource "digitalocean_firewall" "app" {
     source_addresses = ["0.0.0.0/0", "::/0"]
   }
 
-  # SigNoz UI
-  inbound_rule {
-    protocol         = "tcp"
-    port_range       = "8080"
-    source_addresses = ["0.0.0.0/0", "::/0"]
-  }
-
   # Allow all outbound
   outbound_rule {
     protocol              = "tcp"

@@ -326,7 +326,7 @@ docker compose -f docker-compose.prod.yml up --build -d
 | `/redoc` | ReDoc |
 | `/mlflow/` | MLflow (experimentos e model registry) |
 | `/drift/` | Dashboard de drift (Streamlit) |
-| `:8080` | SigNoz (traces, metricas, logs — porta propria) |
+| `/signoz/` | SigNoz (traces, metricas, logs) |
 
 ### Resumo - Todos os Comandos
 
