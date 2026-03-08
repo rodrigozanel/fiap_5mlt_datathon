@@ -3,11 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Passos Magicos - Predicao de Defasagem Escolar</title>
+  <title>Passos Magicos - Plataforma de Predicao de Defasagem Escolar</title>
   <style>
     :root {
       --primary: #2563eb;
       --primary-dark: #1d4ed8;
+      --primary-light: #dbeafe;
       --danger: #dc2626;
       --warning: #f59e0b;
       --success: #16a34a;
@@ -20,80 +21,105 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
 
-    .navbar { background: var(--primary); color: #fff; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; }
-    .navbar h1 { font-size: 1.25rem; font-weight: 600; }
-    .nav-links { display: flex; gap: 1rem; flex-wrap: wrap; }
-    .nav-links a { color: rgba(255,255,255,0.9); text-decoration: none; font-size: 0.875rem; padding: 0.25rem 0.75rem; border-radius: 4px; transition: background 0.2s; }
-    .nav-links a:hover { background: rgba(255,255,255,0.2); }
+    .hero {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: #fff;
+      padding: 3rem 2rem;
+      text-align: center;
+    }
+    .hero h1 { font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .hero p { font-size: 1.1rem; opacity: 0.9; max-width: 700px; margin: 0 auto; }
 
-    .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
 
-    .status-bar { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
-    .status-item { flex: 1; min-width: 200px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
-    .status-item .label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
-    .status-item .value { font-size: 1.25rem; font-weight: 600; margin-top: 0.25rem; }
+    .status-bar {
+      display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap;
+      background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.5rem;
+    }
+    .status-item { flex: 1; min-width: 180px; }
+    .status-item .label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .status-item .value { font-size: 1rem; font-weight: 600; margin-top: 0.15rem; }
     .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
     .dot.green { background: var(--success); }
     .dot.red { background: var(--danger); }
     .dot.gray { background: var(--muted); }
 
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
-    @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+    .section-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; color: var(--text); }
 
-    .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; }
-    .card h2 { font-size: 1rem; margin-bottom: 1rem; color: var(--text); }
+    .apps-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
 
-    .form-group { margin-bottom: 0.75rem; }
-    .form-group label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.2rem; }
-    .form-group input, .form-group select { width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px; font-size: 0.9rem; }
-    .form-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem; }
-    .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    .app-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      text-decoration: none;
+      color: var(--text);
+      transition: box-shadow 0.2s, transform 0.15s;
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+    }
+    .app-card:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      transform: translateY(-2px);
+    }
+    .app-icon {
+      width: 48px; height: 48px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+    .app-icon.blue { background: var(--primary-light); color: var(--primary); }
+    .app-icon.green { background: #dcfce7; color: var(--success); }
+    .app-icon.orange { background: #fef3c7; color: #d97706; }
+    .app-icon.purple { background: #ede9fe; color: #7c3aed; }
+    .app-icon.red { background: #fee2e2; color: var(--danger); }
+    .app-icon.teal { background: #ccfbf1; color: #0d9488; }
 
-    .btn { display: inline-block; padding: 0.6rem 1.5rem; border: none; border-radius: 6px; font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: background 0.2s; }
-    .btn-primary { background: var(--primary); color: #fff; }
-    .btn-primary:hover { background: var(--primary-dark); }
-    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-sm { padding: 0.3rem 0.75rem; font-size: 0.8rem; }
-    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
-    .btn-outline:hover { background: var(--bg); }
+    .app-info h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.2rem; }
+    .app-info p { font-size: 0.85rem; color: var(--muted); line-height: 1.4; }
+    .app-info .app-url { font-size: 0.75rem; color: var(--primary); margin-top: 0.3rem; font-family: monospace; }
 
-    .result { margin-top: 1rem; padding: 1rem; border-radius: 6px; display: none; }
-    .result.baixo { background: #dcfce7; border: 1px solid #86efac; }
-    .result.medio { background: #fef3c7; border: 1px solid #fcd34d; }
-    .result.alto { background: #fee2e2; border: 1px solid #fca5a5; }
-    .result .risk-label { font-size: 1.5rem; font-weight: 700; }
-    .result .risk-detail { font-size: 0.875rem; color: var(--muted); margin-top: 0.25rem; }
+    .tech-stack {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .tech-tags { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
+    .tech-tag {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+      padding: 0.3rem 0.7rem; font-size: 0.8rem; color: var(--muted);
+    }
 
-    .error-msg { color: var(--danger); font-size: 0.85rem; margin-top: 0.5rem; display: none; }
+    .footer {
+      text-align: center; padding: 2rem; color: var(--muted); font-size: 0.8rem;
+      border-top: 1px solid var(--border);
+    }
 
-    .auth-section { margin-bottom: 1rem; }
-
-    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-    th, td { padding: 0.4rem 0.6rem; text-align: left; border-bottom: 1px solid var(--border); }
-    th { color: var(--muted); font-weight: 500; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.05em; }
-    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; }
-    .badge.baixo { background: #dcfce7; color: #166534; }
-    .badge.medio { background: #fef3c7; color: #92400e; }
-    .badge.alto { background: #fee2e2; color: #991b1b; }
-
-    .history-card { grid-column: 1 / -1; }
-    .empty-state { color: var(--muted); text-align: center; padding: 2rem; font-size: 0.9rem; }
+    @media (max-width: 768px) {
+      .hero h1 { font-size: 1.5rem; }
+      .apps-grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
 
-<nav class="navbar">
+<div class="hero">
   <h1>Passos Magicos</h1>
-  <div class="nav-links">
-    <a id="link-docs" href="/docs" target="_blank">API Docs (Swagger)</a>
-    <a id="link-redoc" href="/redoc" target="_blank">ReDoc</a>
-    <a id="link-drift" href="/drift/" target="_blank">Drift Dashboard</a>
-    <a id="link-mlflow" href="/mlflow/" target="_blank">MLflow (Experimentos)</a>
-    <a id="link-signoz" href="/signoz/" target="_blank">SigNoz (Observabilidade)</a>
-  </div>
-</nav>
+  <p>Plataforma de predicao de risco de defasagem escolar para a Associacao Passos Magicos — Datathon Pos Tech FIAP</p>
+</div>
 
 <div class="container">
+
   <!-- Status Bar -->
   <div class="status-bar">
     <div class="status-item">
@@ -101,165 +127,173 @@
       <div class="value" id="api-status"><span class="dot gray"></span>Verificando...</div>
     </div>
     <div class="status-item">
-      <div class="label">Modelo</div>
+      <div class="label">Modelo ML</div>
       <div class="value" id="model-status"><span class="dot gray"></span>Verificando...</div>
     </div>
     <div class="status-item">
-      <div class="label">Autenticacao</div>
-      <div class="value" id="auth-status"><span class="dot gray"></span>Nao autenticado</div>
+      <div class="label">Versao</div>
+      <div class="value" id="api-version">v0.1.0</div>
     </div>
   </div>
 
-  <div class="grid">
-    <!-- Auth Card -->
-    <div class="card">
-      <h2>Autenticacao</h2>
-      <div class="auth-section">
-        <div class="form-row-2">
-          <div class="form-group">
-            <label>Usuario</label>
-            <input type="text" id="username" value="admin">
-          </div>
-          <div class="form-group">
-            <label>Senha</label>
-            <input type="password" id="password" value="passos-magicos">
-          </div>
-        </div>
-        <br>
-        <button class="btn btn-primary" onclick="doLogin()">Login</button>
-        <span class="error-msg" id="auth-error"></span>
-      </div>
-    </div>
+  <!-- Main Applications -->
+  <div class="section-title">Aplicacoes</div>
+  <div class="apps-grid">
 
-    <!-- Quick Actions -->
-    <div class="card">
-      <h2>Acoes Rapidas</h2>
-      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem;">
-        <button class="btn btn-outline btn-sm" onclick="checkHealth()">Health Check</button>
-        <button class="btn btn-outline btn-sm" onclick="fillSampleLow()">Exemplo: Risco Baixo</button>
-        <button class="btn btn-outline btn-sm" onclick="fillSampleHigh()">Exemplo: Risco Alto</button>
+    <a class="app-card" id="card-swagger" href="/docs" target="_blank">
+      <div class="app-icon blue">&#9997;</div>
+      <div class="app-info">
+        <h3>API Docs (Swagger)</h3>
+        <p>Documentacao interativa da API REST. Teste endpoints de autenticacao, health check e predicao diretamente no navegador.</p>
+        <div class="app-url" id="url-swagger">/docs</div>
       </div>
-      <div id="quick-result" style="font-size:0.85rem;color:var(--muted);"></div>
-    </div>
+    </a>
 
-    <!-- Prediction Form -->
-    <div class="card" style="grid-column: 1 / -1;">
-      <h2>Formulario de Predicao</h2>
+    <a class="app-card" id="card-redoc" href="/redoc" target="_blank">
+      <div class="app-icon blue">&#128196;</div>
+      <div class="app-info">
+        <h3>API Docs (ReDoc)</h3>
+        <p>Documentacao alternativa da API em formato ReDoc. Visualizacao limpa dos schemas de request/response.</p>
+        <div class="app-url" id="url-redoc">/redoc</div>
+      </div>
+    </a>
 
-      <h3 style="font-size:0.85rem;color:var(--muted);margin-bottom:0.5rem;">Dados do Aluno</h3>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Fase</label>
-          <input type="number" id="fase" value="3" min="0" max="8">
-        </div>
-        <div class="form-group">
-          <label>Idade</label>
-          <input type="number" id="idade" value="14" min="5" max="25">
-        </div>
-        <div class="form-group">
-          <label>Genero</label>
-          <select id="genero">
-            <option value="Feminino">Feminino</option>
-            <option value="Masculino">Masculino</option>
-          </select>
-        </div>
+    <a class="app-card" id="card-mlflow" href="/mlflow/" target="_blank">
+      <div class="app-icon purple">&#128202;</div>
+      <div class="app-info">
+        <h3>MLflow - Experiment Tracking</h3>
+        <p>Rastreamento de experimentos de ML. Compare metricas, hiperparametros e artefatos dos 4 modelos treinados (LightGBM, XGBoost, RF, LR).</p>
+        <div class="app-url" id="url-mlflow">/mlflow/</div>
       </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Ano de Ingresso</label>
-          <input type="number" id="ano_ingresso" value="2020" min="2000" max="2026">
-        </div>
-        <div class="form-group">
-          <label>Pedra</label>
-          <select id="pedra">
-            <option value="Quartzo">Quartzo</option>
-            <option value="Agata">Agata</option>
-            <option value="Ametista">Ametista</option>
-            <option value="Topazio">Topazio</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>INDE</label>
-          <input type="number" id="inde" value="6.5" step="0.1" min="0" max="10">
-        </div>
-      </div>
+    </a>
 
-      <h3 style="font-size:0.85rem;color:var(--muted);margin:1rem 0 0.5rem;">Indicadores</h3>
-      <div class="form-row">
-        <div class="form-group"><label>IAA</label><input type="number" id="iaa" value="7.2" step="0.1" min="0" max="10"></div>
-        <div class="form-group"><label>IEG</label><input type="number" id="ieg" value="6.8" step="0.1" min="0" max="10"></div>
-        <div class="form-group"><label>IPS</label><input type="number" id="ips" value="7.0" step="0.1" min="0" max="10"></div>
+    <a class="app-card" id="card-signoz" href="/signoz/" target="_blank">
+      <div class="app-icon orange">&#128200;</div>
+      <div class="app-info">
+        <h3>SigNoz - Observabilidade</h3>
+        <p>Traces distribuidos, metricas customizadas e logs centralizados. Dashboards de ML Predictions e API Health pre-configurados.</p>
+        <div class="app-url" id="url-signoz">/signoz/</div>
       </div>
-      <div class="form-row">
-        <div class="form-group"><label>IDA</label><input type="number" id="ida" value="5.9" step="0.1" min="0" max="10"></div>
-        <div class="form-group"><label>IPP</label><input type="number" id="ipp" value="6.5" step="0.1" min="0" max="10"></div>
-        <div class="form-group"><label>IPV</label><input type="number" id="ipv" value="6.0" step="0.1" min="0" max="10"></div>
-      </div>
-      <div class="form-row">
-        <div class="form-group"><label>IAN</label><input type="number" id="ian" value="5.5" step="0.1" min="0" max="10"></div>
-        <div class="form-group"></div>
-        <div class="form-group"></div>
-      </div>
+    </a>
 
-      <h3 style="font-size:0.85rem;color:var(--muted);margin:1rem 0 0.5rem;">Notas</h3>
-      <div class="form-row">
-        <div class="form-group"><label>Matematica</label><input type="number" id="nota_mat" value="6.0" step="0.1" min="0" max="10"></div>
-        <div class="form-group"><label>Portugues</label><input type="number" id="nota_por" value="7.0" step="0.1" min="0" max="10"></div>
-        <div class="form-group"><label>Ingles</label><input type="number" id="nota_ing" value="5.5" step="0.1" min="0" max="10"></div>
+    <a class="app-card" id="card-drift" href="/drift/" target="_blank">
+      <div class="app-icon green">&#128201;</div>
+      <div class="app-info">
+        <h3>Drift Dashboard</h3>
+        <p>Monitoramento de data drift com Streamlit + Evidently. Distribuicao de features, probabilidades preditas e latencia ao longo do tempo.</p>
+        <div class="app-url" id="url-drift">/drift/</div>
       </div>
+    </a>
 
-      <h3 style="font-size:0.85rem;color:var(--muted);margin:1rem 0 0.5rem;">Outros</h3>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Atingiu Ponto de Virada?</label>
-          <select id="atingiu_pv">
-            <option value="false">Nao</option>
-            <option value="true">Sim</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Indicado para Bolsa?</label>
-          <select id="indicado_bolsa">
-            <option value="false">Nao</option>
-            <option value="true">Sim</option>
-          </select>
-        </div>
-        <div class="form-group"></div>
+    <a class="app-card" id="card-health" href="#" onclick="checkHealth(); return false;">
+      <div class="app-icon teal">&#9989;</div>
+      <div class="app-info">
+        <h3>Health Check</h3>
+        <p>Verifica status da API e se o modelo de ML esta carregado e pronto para servir predicoes.</p>
+        <div class="app-url" id="url-health">/api/v1/health</div>
       </div>
+    </a>
 
-      <br>
-      <button class="btn btn-primary" id="predict-btn" onclick="doPrediction()" disabled>Prever Risco de Defasagem</button>
-      <span class="error-msg" id="predict-error"></span>
+  </div>
 
-      <div class="result" id="result-box">
-        <div class="risk-label" id="result-risk"></div>
-        <div class="risk-detail" id="result-detail"></div>
-      </div>
-    </div>
+  <!-- API Quick Reference -->
+  <div class="section-title">Endpoints da API</div>
+  <div class="tech-stack">
+    <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+      <thead>
+        <tr style="border-bottom:2px solid var(--border);">
+          <th style="text-align:left;padding:0.5rem;color:var(--muted);font-size:0.75rem;text-transform:uppercase;">Metodo</th>
+          <th style="text-align:left;padding:0.5rem;color:var(--muted);font-size:0.75rem;text-transform:uppercase;">Endpoint</th>
+          <th style="text-align:left;padding:0.5rem;color:var(--muted);font-size:0.75rem;text-transform:uppercase;">Auth</th>
+          <th style="text-align:left;padding:0.5rem;color:var(--muted);font-size:0.75rem;text-transform:uppercase;">Descricao</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:0.5rem;"><span style="background:#dcfce7;color:#166534;padding:0.15rem 0.5rem;border-radius:4px;font-size:0.75rem;font-weight:600;">GET</span></td>
+          <td style="padding:0.5rem;font-family:monospace;font-size:0.8rem;">/api/v1/health</td>
+          <td style="padding:0.5rem;">Nao</td>
+          <td style="padding:0.5rem;">Status da API e modelo</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:0.5rem;"><span style="background:#fef3c7;color:#92400e;padding:0.15rem 0.5rem;border-radius:4px;font-size:0.75rem;font-weight:600;">POST</span></td>
+          <td style="padding:0.5rem;font-family:monospace;font-size:0.8rem;">/api/v1/auth/login</td>
+          <td style="padding:0.5rem;">Nao</td>
+          <td style="padding:0.5rem;">Obter token JWT</td>
+        </tr>
+        <tr>
+          <td style="padding:0.5rem;"><span style="background:#fef3c7;color:#92400e;padding:0.15rem 0.5rem;border-radius:4px;font-size:0.75rem;font-weight:600;">POST</span></td>
+          <td style="padding:0.5rem;font-family:monospace;font-size:0.8rem;">/api/v1/predict</td>
+          <td style="padding:0.5rem;">JWT Bearer</td>
+          <td style="padding:0.5rem;">Predicao de defasagem escolar</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 
-    <!-- History -->
-    <div class="card history-card">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <h2>Historico de Predicoes</h2>
-        <button class="btn btn-outline btn-sm" onclick="loadHistory()">Atualizar</button>
-      </div>
-      <div id="history-container" style="margin-top:1rem;overflow-x:auto;">
-        <div class="empty-state">Nenhuma predicao realizada ainda.</div>
-      </div>
+  <!-- Tech Stack -->
+  <div class="section-title">Stack Tecnologico</div>
+  <div class="tech-stack">
+    <div class="tech-tags">
+      <span class="tech-tag">Python 3.13</span>
+      <span class="tech-tag">FastAPI</span>
+      <span class="tech-tag">scikit-learn</span>
+      <span class="tech-tag">LightGBM</span>
+      <span class="tech-tag">XGBoost</span>
+      <span class="tech-tag">MLflow</span>
+      <span class="tech-tag">Feast</span>
+      <span class="tech-tag">OpenTelemetry</span>
+      <span class="tech-tag">SigNoz</span>
+      <span class="tech-tag">Streamlit</span>
+      <span class="tech-tag">Evidently</span>
+      <span class="tech-tag">Docker</span>
+      <span class="tech-tag">NGINX</span>
+      <span class="tech-tag">JWT Auth</span>
     </div>
   </div>
+
+</div>
+
+<div class="footer">
+  Passos Magicos &mdash; Datathon Pos Tech FIAP &mdash; Predicao de Defasagem Escolar
 </div>
 
 <script>
-// In dev mode (port 3000), API runs on port 8000; in prod (NGINX), same origin.
+// Environment detection
 const isDevMode = window.location.port === '3000';
 const API_BASE = isDevMode ? `http://${window.location.hostname}:8000/api/v1` : '/api/v1';
-const WEBAPP_BASE = isDevMode ? `http://${window.location.hostname}:3000` : '';
-let token = null;
 
-// -- Health --
+function setupLinks() {
+  if (!isDevMode) return;
+  const host = window.location.hostname;
+
+  const links = {
+    'card-swagger': `http://${host}:8000/docs`,
+    'card-redoc': `http://${host}:8000/redoc`,
+    'card-mlflow': `http://${host}:5001`,
+    'card-signoz': `http://${host}:8080`,
+    'card-drift': `http://${host}:8501`,
+  };
+  const urls = {
+    'url-swagger': `http://${host}:8000/docs`,
+    'url-redoc': `http://${host}:8000/redoc`,
+    'url-mlflow': `http://${host}:5001`,
+    'url-signoz': `http://${host}:8080`,
+    'url-drift': `http://${host}:8501`,
+    'url-health': `http://${host}:8000/api/v1/health`,
+  };
+
+  for (const [id, href] of Object.entries(links)) {
+    const el = document.getElementById(id);
+    if (el) el.href = href;
+  }
+  for (const [id, url] of Object.entries(urls)) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = url;
+  }
+}
+
 async function checkHealth() {
-  const el = document.getElementById('quick-result');
   try {
     const res = await fetch(`${API_BASE}/health`);
     const data = await res.json();
@@ -267,189 +301,14 @@ async function checkHealth() {
     document.getElementById('model-status').innerHTML = data.model_loaded
       ? `<span class="dot green"></span>Carregado`
       : `<span class="dot red"></span>Nao carregado`;
-    el.textContent = `Health: ${JSON.stringify(data)}`;
   } catch (e) {
     document.getElementById('api-status').innerHTML = `<span class="dot red"></span>Offline`;
-    el.textContent = `Erro: ${e.message}`;
+    document.getElementById('model-status').innerHTML = `<span class="dot gray"></span>Indisponivel`;
   }
 }
 
-// -- Auth --
-async function doLogin() {
-  const errEl = document.getElementById('auth-error');
-  errEl.style.display = 'none';
-  const username = document.getElementById('username').value;
-  const password = document.getElementById('password').value;
-  try {
-    const res = await fetch(`${API_BASE}/auth/login`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({username, password})
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || 'Login failed');
-    }
-    const data = await res.json();
-    token = data.access_token;
-    document.getElementById('auth-status').innerHTML = `<span class="dot green"></span>Autenticado`;
-    document.getElementById('predict-btn').disabled = false;
-  } catch (e) {
-    errEl.textContent = e.message;
-    errEl.style.display = 'block';
-    document.getElementById('auth-status').innerHTML = `<span class="dot red"></span>Falha`;
-  }
-}
-
-// -- Prediction --
-function getFormData() {
-  return {
-    fase: +document.getElementById('fase').value,
-    idade: +document.getElementById('idade').value,
-    genero: document.getElementById('genero').value,
-    ano_ingresso: +document.getElementById('ano_ingresso').value,
-    inde: +document.getElementById('inde').value,
-    pedra: document.getElementById('pedra').value,
-    iaa: +document.getElementById('iaa').value,
-    ieg: +document.getElementById('ieg').value,
-    ips: +document.getElementById('ips').value,
-    ida: +document.getElementById('ida').value,
-    ipp: +document.getElementById('ipp').value,
-    ipv: +document.getElementById('ipv').value,
-    ian: +document.getElementById('ian').value,
-    nota_mat: +document.getElementById('nota_mat').value,
-    nota_por: +document.getElementById('nota_por').value,
-    nota_ing: +document.getElementById('nota_ing').value,
-    atingiu_pv: document.getElementById('atingiu_pv').value === 'true',
-    indicado_bolsa: document.getElementById('indicado_bolsa').value === 'true'
-  };
-}
-
-async function doPrediction() {
-  const errEl = document.getElementById('predict-error');
-  errEl.style.display = 'none';
-  const resultBox = document.getElementById('result-box');
-  resultBox.style.display = 'none';
-
-  if (!token) {
-    errEl.textContent = 'Faca login primeiro.';
-    errEl.style.display = 'block';
-    return;
-  }
-
-  const body = getFormData();
-
-  try {
-    const res = await fetch(`${API_BASE}/predict`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify(body)
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || `HTTP ${res.status}`);
-    }
-    const data = await res.json();
-
-    // Show result
-    resultBox.className = `result ${data.risk_level}`;
-    resultBox.style.display = 'block';
-    const riskLabels = {baixo: 'RISCO BAIXO', medio: 'RISCO MEDIO', alto: 'RISCO ALTO'};
-    document.getElementById('result-risk').textContent = riskLabels[data.risk_level] || data.risk_level;
-    document.getElementById('result-detail').textContent =
-      `Probabilidade de defasagem: ${(data.probability * 100).toFixed(1)}% | Predicao: ${data.prediction === 1 ? 'Com Defasagem' : 'Sem Defasagem'}`;
-
-    // Save to history
-    await fetch(WEBAPP_BASE + '/history', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({input: body, output: data})
-    });
-    loadHistory();
-
-  } catch (e) {
-    errEl.textContent = e.message;
-    errEl.style.display = 'block';
-  }
-}
-
-// -- History --
-async function loadHistory() {
-  const container = document.getElementById('history-container');
-  try {
-    const res = await fetch(WEBAPP_BASE + '/history');
-    const records = await res.json();
-    if (!records.length) {
-      container.innerHTML = '<div class="empty-state">Nenhuma predicao realizada ainda.</div>';
-      return;
-    }
-    const rows = records.reverse().map(r => {
-      const i = r.input || {};
-      const o = r.output || {};
-      return `<tr>
-        <td>${r.saved_at ? new Date(r.saved_at).toLocaleString('pt-BR') : '-'}</td>
-        <td>${i.idade || '-'}</td>
-        <td>${i.genero || '-'}</td>
-        <td>${i.fase || '-'}</td>
-        <td>${i.pedra || '-'}</td>
-        <td>${i.inde || '-'}</td>
-        <td>${o.probability != null ? (o.probability * 100).toFixed(1) + '%' : '-'}</td>
-        <td><span class="badge ${o.risk_level || ''}">${(o.risk_level || '-').toUpperCase()}</span></td>
-      </tr>`;
-    }).join('');
-    container.innerHTML = `<table>
-      <thead><tr><th>Data</th><th>Idade</th><th>Genero</th><th>Fase</th><th>Pedra</th><th>INDE</th><th>Prob.</th><th>Risco</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
-  } catch (e) {
-    container.innerHTML = `<div class="empty-state">Erro ao carregar historico: ${e.message}</div>`;
-  }
-}
-
-// -- Sample data --
-function fillSampleLow() {
-  const vals = {fase:3, idade:14, inde:8.5, iaa:8.0, ieg:8.5, ips:9.0, ida:7.5, ipp:8.0, ipv:8.5, ian:7.0, nota_mat:8.0, nota_por:8.5, nota_ing:7.5, ano_ingresso:2020};
-  Object.entries(vals).forEach(([k,v]) => { const el = document.getElementById(k); if(el) el.value = v; });
-  document.getElementById('genero').value = 'Feminino';
-  document.getElementById('pedra').value = 'Topazio';
-  document.getElementById('atingiu_pv').value = 'true';
-  document.getElementById('indicado_bolsa').value = 'true';
-}
-
-function fillSampleHigh() {
-  const vals = {fase:2, idade:16, inde:3.0, iaa:2.5, ieg:3.0, ips:2.0, ida:3.5, ipp:2.0, ipv:1.5, ian:2.0, nota_mat:3.0, nota_por:2.5, nota_ing:2.0, ano_ingresso:2023};
-  Object.entries(vals).forEach(([k,v]) => { const el = document.getElementById(k); if(el) el.value = v; });
-  document.getElementById('genero').value = 'Masculino';
-  document.getElementById('pedra').value = 'Quartzo';
-  document.getElementById('atingiu_pv').value = 'false';
-  document.getElementById('indicado_bolsa').value = 'false';
-}
-
-// -- Environment detection --
-// If running on port 3000 (dev), link to services on their own ports.
-// If running behind NGINX (port 80), use relative paths.
-function setupLinks() {
-  const loc = window.location;
-  const isDevMode = loc.port === '3000';
-
-  if (isDevMode) {
-    const host = loc.hostname;
-    document.getElementById('link-docs').href = `http://${host}:8000/docs`;
-    document.getElementById('link-redoc').href = `http://${host}:8000/redoc`;
-    document.getElementById('link-drift').href = `http://${host}:8501`;
-    document.getElementById('link-mlflow').href = `http://${host}:5001`;
-    document.getElementById('link-signoz').href = `http://${host}:8080`;
-  }
-  // In production (behind NGINX), the default relative hrefs work as-is.
-}
-
-// -- Init --
 setupLinks();
 checkHealth();
-loadHistory();
 </script>
 
 </body>
