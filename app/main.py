@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from opentelemetry.trace import StatusCode
 
 from app.routes import init_feature_store, router, set_model
-from app.telemetry import get_tracer, init_telemetry, record_model_load
+from app.telemetry import get_tracer, record_model_load
 from src.utils import MODEL_DIR, get_logger
 
 logger = get_logger("api.main")
@@ -19,8 +19,6 @@ tracer = get_tracer("api.main")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Load model on startup."""
-    init_telemetry()
-
     model_path = Path(os.getenv("MODEL_PATH", str(MODEL_DIR / "model.joblib")))
 
     with tracer.start_as_current_span("model.load") as span:

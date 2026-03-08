@@ -1,39 +1,12 @@
-"""OpenTelemetry instrumentation for traces and metrics."""
+"""OpenTelemetry instrumentation for custom spans and metrics.
+
+When the app runs via `opentelemetry-instrument`, the tracer and meter
+providers are already configured by the auto-instrumentation agent.
+This module simply creates custom tracers, meters, and instruments
+on top of whatever provider is active (auto or manual).
+"""
 
 from opentelemetry import metrics, trace
-from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
-from opentelemetry.sdk.resources import SERVICE_NAME, Resource
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-
-_initialized = False
-
-SERVICE = "passos-magicos-ml"
-
-
-def init_telemetry():
-    """Initialize OpenTelemetry tracer and meter providers."""
-    global _initialized
-    if _initialized:
-        return
-    _initialized = True
-
-    resource = Resource(attributes={SERVICE_NAME: SERVICE})
-
-    # Traces
-    tracer_provider = TracerProvider(resource=resource)
-    tracer_provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
-    trace.set_tracer_provider(tracer_provider)
-
-    # Metrics
-    metric_reader = PeriodicExportingMetricReader(
-        OTLPMetricExporter(), export_interval_millis=15000
-    )
-    meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
-    metrics.set_meter_provider(meter_provider)
 
 
 def get_tracer(name: str) -> trace.Tracer:
