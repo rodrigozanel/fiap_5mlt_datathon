@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
+from opentelemetry.trace import StatusCode
 
 from app.auth import create_access_token, get_current_user, verify_credentials
 from app.schemas import (
@@ -15,6 +16,7 @@ from app.schemas import (
     StudentInput,
     TokenResponse,
 )
+from app.telemetry import get_tracer, record_login, record_prediction
 from monitoring.logger import log_prediction
 from src.feature_engineering import (
     create_academic_features,
@@ -27,6 +29,7 @@ from src.preprocessing import PEDRA_ORDER
 from src.utils import get_logger
 
 logger = get_logger("api.routes")
+tracer = get_tracer("api.routes")
 
 router = APIRouter(prefix="/api/v1")
 
@@ -98,10 +101,17 @@ def health():
 @router.post("/auth/login", response_model=TokenResponse)
 def login(body: LoginRequest):
     """Authenticate and return a JWT bearer token."""
-    if not verify_credentials(body.username, body.password):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    token = create_access_token(body.username)
-    return TokenResponse(access_token=token)
+    with tracer.start_as_current_span("auth.login") as span:
+        span.set_attribute("auth.username", body.username)
+        if not verify_credentials(body.username, body.password):
+            span.set_attribute("auth.success", False)
+            span.set_status(StatusCode.ERROR, "Invalid credentials")
+            record_login(success=False)
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+        span.set_attribute("auth.success", True)
+        record_login(success=True)
+        token = create_access_token(body.username)
+        return TokenResponse(access_token=token)
 
 
 @router.post("/predict", response_model=PredictionOutput)
@@ -110,30 +120,55 @@ def predict(student: StudentInput, _: str = Depends(get_current_user)):
     if _model is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
 
-    start = time.perf_counter()
+    with tracer.start_as_current_span("predict") as span:
+        start = time.perf_counter()
 
-    input_df = _prepare_input(student)
-    probability = float(_model.predict_proba(input_df)[0][1])
-    prediction = int(probability >= 0.5)
-    risk_level = _classify_risk(probability)
+        # -- Feature engineering --
+        with tracer.start_as_current_span("predict.feature_engineering"):
+            input_df = _prepare_input(student)
 
-    latency_ms = (time.perf_counter() - start) * 1000
+        # -- Model inference --
+        with tracer.start_as_current_span("predict.model_inference") as inf_span:
+            t0 = time.perf_counter()
+            probability = float(_model.predict_proba(input_df)[0][1])
+            inference_ms = (time.perf_counter() - t0) * 1000
+            inf_span.set_attribute("model.inference_time_ms", round(inference_ms, 2))
 
-    logger.info(
-        f"prediction={prediction} probability={probability:.4f} "
-        f"risk={risk_level} latency={latency_ms:.1f}ms"
-    )
+        # -- Risk classification --
+        prediction = int(probability >= 0.5)
+        risk_level = _classify_risk(probability)
 
-    log_prediction(
-        input_data=student.model_dump(),
-        prediction=prediction,
-        probability=probability,
-        risk_level=risk_level,
-        latency_ms=latency_ms,
-    )
+        latency_ms = (time.perf_counter() - start) * 1000
 
-    return PredictionOutput(
-        prediction=prediction,
-        probability=round(probability, 4),
-        risk_level=risk_level,
-    )
+        # Business attributes on the parent span
+        span.set_attribute("prediction.result", prediction)
+        span.set_attribute("prediction.probability", round(probability, 4))
+        span.set_attribute("prediction.risk_level", risk_level)
+        span.set_attribute("prediction.latency_ms", round(latency_ms, 2))
+        span.set_attribute("student.idade", student.idade)
+        span.set_attribute("student.fase", student.fase)
+        span.set_attribute("student.genero", student.genero)
+        span.set_attribute("student.pedra", student.pedra)
+        span.set_attribute("student.inde", student.inde)
+
+        # Record OTel metrics
+        record_prediction(probability, risk_level, latency_ms)
+
+        logger.info(
+            f"prediction={prediction} probability={probability:.4f} "
+            f"risk={risk_level} latency={latency_ms:.1f}ms"
+        )
+
+        log_prediction(
+            input_data=student.model_dump(),
+            prediction=prediction,
+            probability=probability,
+            risk_level=risk_level,
+            latency_ms=latency_ms,
+        )
+
+        return PredictionOutput(
+            prediction=prediction,
+            probability=round(probability, 4),
+            risk_level=risk_level,
+        )
