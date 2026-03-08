@@ -6,8 +6,10 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-LOGS_DIR = Path(__file__).resolve().parent.parent / "logs"
+BASE_DIR = Path(__file__).resolve().parent.parent
+LOGS_DIR = BASE_DIR / "logs"
 PREDICTIONS_LOG = LOGS_DIR / "predictions.log"
+FEATURE_STORE_PARQUET = BASE_DIR / "feature_store" / "data" / "student_features.parquet"
 
 st.set_page_config(page_title="Passos Magicos - Drift Monitor", layout="wide")
 st.title("Passos Magicos - Monitoramento de Drift")
@@ -111,6 +113,96 @@ st.subheader("Latencia por Predicao")
 if "timestamp" in df.columns:
     latency_data = df.set_index("timestamp")[["latency_ms"]]
     st.line_chart(latency_data)
+
+# --- Feature Store ---
+st.divider()
+st.subheader("Feature Store (Feast)")
+
+if FEATURE_STORE_PARQUET.exists():
+    df_fs = pd.read_parquet(FEATURE_STORE_PARQUET)
+    meta_cols = {"student_id", "event_timestamp", "target"}
+    feature_cols = [c for c in df_fs.columns if c not in meta_cols]
+
+    # Metadata from parquet file
+    parquet_mtime = pd.Timestamp.fromtimestamp(
+        FEATURE_STORE_PARQUET.stat().st_mtime
+    ).strftime("%Y-%m-%d %H:%M:%S")
+
+    # Try to get registry info
+    registry_info = {}
+    try:
+        from feast import FeatureStore as _FS
+
+        fs_path = BASE_DIR / "feature_store"
+        store = _FS(repo_path=str(fs_path))
+        views = store.list_feature_views()
+        if views:
+            fv = views[0]
+            registry_info["Feature View"] = fv.name
+            registry_info["Entidade"] = ", ".join(e.name for e in fv.entities)
+            registry_info["TTL"] = str(fv.ttl)
+    except Exception:
+        pass
+
+    fs_col1, fs_col2, fs_col3, fs_col4 = st.columns(4)
+    fs_col1.metric("Registros no Store", len(df_fs))
+    fs_col2.metric("Features", len(feature_cols))
+    if "target" in df_fs.columns:
+        fs_col3.metric("% Defasagem (treino)", f"{df_fs['target'].mean():.1%}")
+    fs_col4.metric("Ultima Geracao", parquet_mtime)
+
+    if registry_info:
+        st.caption(
+            f"**View:** {registry_info.get('Feature View', '–')} | "
+            f"**Entidade:** {registry_info.get('Entidade', '–')} | "
+            f"**TTL:** {registry_info.get('TTL', '–')} | "
+            f"**Provider:** local (SQLite)"
+        )
+
+    if "ano" in df_fs.columns:
+        anos = sorted(df_fs["ano"].unique())
+        st.caption(f"**Anos no dataset:** {', '.join(str(int(a)) for a in anos)}")
+        with st.expander("Distribuicao por Ano"):
+            ano_stats = df_fs.groupby("ano").agg(
+                registros=("ano", "size"),
+                defasagem=("target", "mean") if "target" in df_fs.columns else ("ano", "size"),
+            )
+            if "target" in df_fs.columns:
+                ano_stats = df_fs.groupby("ano").agg(
+                    registros=("ano", "size"),
+                    pct_defasagem=("target", "mean"),
+                ).round(3)
+                ano_stats["pct_defasagem"] = ano_stats["pct_defasagem"].map("{:.1%}".format)
+            else:
+                ano_stats = df_fs.groupby("ano").size().to_frame("registros")
+            st.dataframe(ano_stats)
+
+    with st.expander("Estatisticas do Feature Store"):
+        st.dataframe(df_fs[feature_cols].describe().T.round(3))
+
+    # Compare training vs production distributions
+    input_to_feature = {f"input_{c}": c for c in feature_cols}
+    comparable = [ic for ic in input_to_feature if ic in df.columns]
+
+    if comparable:
+        st.subheader("Treino vs Producao")
+        selected = st.selectbox("Feature (comparacao)", comparable, key="fs_cmp")
+        fs_feat = input_to_feature[selected]
+
+        cmp_col1, cmp_col2 = st.columns(2)
+        with cmp_col1:
+            st.caption("Treino (Feature Store)")
+            st.bar_chart(df_fs[fs_feat].dropna().value_counts().sort_index().head(30))
+            st.dataframe(df_fs[[fs_feat]].describe().T.round(3))
+        with cmp_col2:
+            st.caption("Producao (Predictions)")
+            st.bar_chart(df[selected].dropna().value_counts().sort_index().head(30))
+            st.dataframe(df[[selected]].describe().T.round(3))
+else:
+    st.info(
+        "Feature Store nao encontrado. "
+        "Execute: docker compose --profile feast run --rm materialize"
+    )
 
 # --- Raw logs ---
 with st.expander("Logs Brutos (ultimas 50)"):
