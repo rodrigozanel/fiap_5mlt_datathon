@@ -167,12 +167,12 @@
       </div>
     </a>
 
-    <a class="app-card" id="card-signoz" href="/signoz/" target="_blank">
+    <a class="app-card" id="card-signoz" href="" target="_blank">
       <div class="app-icon orange">&#128200;</div>
       <div class="app-info">
         <h3>SigNoz - Observabilidade</h3>
         <p>Traces distribuidos, metricas customizadas e logs centralizados. Dashboards de ML Predictions e API Health pre-configurados.</p>
-        <div class="app-url" id="url-signoz">/signoz/</div>
+        <div class="app-url" id="url-signoz">:8080</div>
       </div>
     </a>
 
@@ -275,20 +275,23 @@ const API_BASE = isDevMode ? `http://${window.location.hostname}:8000/api/v1` : 
 function setupLinks() {
   const host = window.location.hostname;
 
+  // SigNoz always on port 8080 (SPA incompatible with reverse proxy subpath)
+  const signozUrl = `http://${host}:8080`;
+  document.getElementById('card-signoz').href = signozUrl;
+  document.getElementById('url-signoz').textContent = signozUrl;
+
   if (!isDevMode) return;
 
   const links = {
     'card-swagger': `http://${host}:8000/docs`,
     'card-redoc': `http://${host}:8000/redoc`,
     'card-mlflow': `http://${host}:5001`,
-    'card-signoz': `http://${host}:8080`,
     'card-drift': `http://${host}:8501`,
   };
   const urls = {
     'url-swagger': `http://${host}:8000/docs`,
     'url-redoc': `http://${host}:8000/redoc`,
     'url-mlflow': `http://${host}:5001`,
-    'url-signoz': `http://${host}:8080`,
     'url-drift': `http://${host}:8501`,
     'url-health': `http://${host}:8000/api/v1/health`,
   };
