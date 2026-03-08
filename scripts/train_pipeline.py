@@ -2,6 +2,9 @@
 """End-to-end training pipeline: load data, train models, evaluate, and save the best."""
 
 import os
+
+os.environ["GIT_PYTHON_REFRESH"] = "quiet"
+
 from pathlib import Path
 
 import mlflow
@@ -133,12 +136,8 @@ def main() -> None:
             mlflow.set_tag("is_best", str(is_best))
             mlflow.set_tag("model_type", model_name)
 
-            # Log the sklearn pipeline as an MLflow model
-            mlflow.sklearn.log_model(
-                pipeline,
-                artifact_path="model",
-                registered_model_name=f"passos-magicos-{model_name}" if is_best else None,
-            )
+            # Log the sklearn pipeline as an MLflow artifact
+            mlflow.sklearn.log_model(pipeline, artifact_path="model")
 
             print(f"  MLflow: logged {model_name}" + (" (best)" if is_best else ""))
 

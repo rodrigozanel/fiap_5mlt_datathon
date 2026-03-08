@@ -63,6 +63,8 @@ services:
       mlflow:
         condition: service_healthy
     command: python scripts/train_pipeline.py
+    networks:
+      - app-network
     profiles: ["train"]
 
   # API server
