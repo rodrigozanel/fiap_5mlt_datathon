@@ -15,9 +15,94 @@ A Associacao Passos Magicos atua ha 32 anos transformando a vida de criancas e j
 - scikit-learn + LightGBM + XGBoost
 - FastAPI + Uvicorn
 - Docker + Docker Compose + NGINX
-- MLflow (experiment tracking e model registry)
+- MLflow (experiment tracking)
+- Feast (Feature Store)
 - OpenTelemetry + SigNoz (observabilidade)
 - Streamlit + Evidently (monitoramento de drift)
+
+---
+
+## Arquitetura da Solucao
+
+```
+                                    ┌─────────────────────────────────────────────────────────────────┐
+                                    │                     Docker Compose Network                       │
+                                    │                                                                 │
+  ┌──────────┐    ┌──────────┐      │  ┌─────────────────────────────────────────────────────────┐    │
+  │          │    │          │      │  │                    NGINX :80                             │    │
+  │ Browser  │───▶│  Porta   │─────▶│  │  /          ──▶  Web UI                                 │    │
+  │          │    │  80/3000 │      │  │  /api/v1/*  ──▶  FastAPI                                │    │
+  └──────────┘    └──────────┘      │  │  /docs      ──▶  Swagger UI                             │    │
+                                    │  │  /mlflow/   ──▶  MLflow                                 │    │
+                                    │  │  /drift/    ──▶  Streamlit                              │    │
+                                    │  │  /signoz/   ──▶  SigNoz                                 │    │
+                                    │  └──────┬──────────────┬───────────────┬──────────────┬─────┘    │
+                                    │         │              │               │              │          │
+                                    │         ▼              ▼               ▼              ▼          │
+                                    │  ┌─────────────┐ ┌──────────┐  ┌───────────┐  ┌───────────┐     │
+                                    │  │  Web UI      │ │ FastAPI  │  │  Drift    │  │  MLflow   │     │
+                                    │  │  :3000       │ │ API :8000│  │ Dashboard │  │  :5000    │     │
+                                    │  │             │ │          │  │  :8501    │  │           │     │
+                                    │  │  - Auth form │ │ JWT Auth │  │ Streamlit │  │ Tracking  │     │
+                                    │  │  - Predicao  │ │ /predict │  │ Evidently │  │ Artifacts │     │
+                                    │  │  - Historico │ │ /health  │  │           │  │ Metricas  │     │
+                                    │  └──────┬──────┘ └────┬─────┘  └─────┬─────┘  └─────┬─────┘     │
+                                    │         │             │              │              │            │
+                                    │         │        ┌────┴────┐    ┌────┴────┐    ┌────┴────┐       │
+                                    │         │        │  Model  │    │  Logs   │    │ SQLite  │       │
+                                    │         │        │ .joblib │    │  JSON   │    │  + Vol  │       │
+                                    │         │        └────┬────┘    └─────────┘    └─────────┘       │
+                                    │         │             │                                          │
+                                    │    ┌────┴─────────────┴──────────────────────────────────┐       │
+                                    │    │              OpenTelemetry (auto-instrumentation)    │       │
+                                    │    │  Spans: model.load, predict, auth.login             │       │
+                                    │    │  Metrics: predictions.total, latency, risk_level    │       │
+                                    │    └────────────────────────┬────────────────────────────┘       │
+                                    │                             │ OTLP/HTTP :4318                    │
+                                    │                             ▼                                    │
+                                    │                   ┌──────────────────┐                           │
+                                    │                   │   OTel Collector │                           │
+                                    │                   └────────┬─────────┘                           │
+                                    │                            │                                     │
+                                    │                            ▼                                     │
+                                    │  ┌──────────────────────────────────────────────────────────┐    │
+                                    │  │                    SigNoz Stack                          │    │
+                                    │  │  ┌──────────┐  ┌────────────┐  ┌──────────────────────┐ │    │
+                                    │  │  │ SigNoz   │  │ ClickHouse │  │ Zookeeper            │ │    │
+                                    │  │  │ UI :8080 │  │ (storage)  │  │ (coordination)       │ │    │
+                                    │  │  │ Traces   │  │ Traces     │  └──────────────────────┘ │    │
+                                    │  │  │ Metrics  │  │ Metrics    │  ┌──────────────────────┐ │    │
+                                    │  │  │ Logs     │  │ Logs       │  │ Schema Migrators     │ │    │
+                                    │  │  │ Dashb.   │  │            │  │ (sync + async)       │ │    │
+                                    │  │  └──────────┘  └────────────┘  └──────────────────────┘ │    │
+                                    │  └──────────────────────────────────────────────────────────┘    │
+                                    │                                                                 │
+                                    │  ┌──────────────────────────────────────────────────────────┐    │
+                                    │  │                 Training Pipeline (one-shot)             │    │
+                                    │  │                                                          │    │
+                                    │  │  ┌─────────┐   ┌───────────┐   ┌──────────┐   ┌───────┐ │    │
+                                    │  │  │  XLSX   │──▶│ Preproc.  │──▶│ Feature  │──▶│ Train │ │    │
+                                    │  │  │  Data   │   │ & Clean   │   │ Engineer │   │ 4 mod │ │    │
+                                    │  │  └─────────┘   └───────────┘   └────┬─────┘   └───┬───┘ │    │
+                                    │  │                                     │             │     │    │
+                                    │  │                              ┌──────┴──────┐      │     │    │
+                                    │  │                              │ Feast Store │      │     │    │
+                                    │  │                              │ (opcional)  │      │     │    │
+                                    │  │                              └─────────────┘      │     │    │
+                                    │  │                                           ┌──────┴───┐ │    │
+                                    │  │                                           │ Evaluate │ │    │
+                                    │  │         Logs to MLflow ◀──────────────────│ Compare  │ │    │
+                                    │  │         (params, metrics, artifacts)      │ Save best│ │    │
+                                    │  │                                           └──────────┘ │    │
+                                    │  └──────────────────────────────────────────────────────────┘    │
+                                    └─────────────────────────────────────────────────────────────────┘
+```
+
+**Fluxo principal:**
+1. **Treino** — O pipeline carrega dados do XLSX (ou Feast), treina 4 modelos (LightGBM, XGBoost, RF, LR), registra metricas no MLflow e salva o melhor como `model.joblib`
+2. **Servico** — A API FastAPI carrega o modelo, recebe requests autenticados via JWT, aplica feature engineering e retorna a predicao com nivel de risco
+3. **Observabilidade** — Cada request gera spans e metricas OTel enviados ao SigNoz via OTel Collector, com dashboards predefinidos para ML e saude da API
+4. **Monitoramento** — O Drift Dashboard (Streamlit) analisa distribuicao de features e detecta desvios nos dados de producao
 
 ---
 
@@ -30,6 +115,7 @@ passos-magicos-ml/
 |   |-- routes.py                 # POST /api/v1/predict, GET /api/v1/health, POST /api/v1/auth/login
 |   |-- schemas.py                # Pydantic: StudentInput, PredictionOutput, LoginRequest, TokenResponse
 |   |-- auth.py                   # JWT: criacao e verificacao de tokens
+|   |-- telemetry.py              # OpenTelemetry: tracers, meters, metricas customizadas
 |   |-- model/
 |       |-- model.joblib           # Modelo treinado serializado
 |
@@ -40,6 +126,11 @@ passos-magicos-ml/
 |   |-- evaluate.py               # Metricas, reports, comparacao de modelos
 |   |-- utils.py                  # Logger, constantes, paths
 |
+|-- scripts/                      # Scripts utilitarios
+|   |-- train_pipeline.py         # Pipeline completo de treinamento com MLflow
+|   |-- materialize_features.py   # Materializa features no Feast Feature Store
+|   |-- provision_dashboards.sh   # Provisiona dashboards no SigNoz via API
+|
 |-- tests/                        # Testes unitarios (86% cobertura)
 |   |-- conftest.py               # Fixtures compartilhadas
 |   |-- test_preprocessing.py
@@ -47,6 +138,11 @@ passos-magicos-ml/
 |   |-- test_train.py
 |   |-- test_evaluate.py
 |   |-- test_api.py
+|
+|-- feature_store/                # Feast Feature Store (opcional)
+|   |-- feature_store.yaml        # Configuracao do Feast (provider: local)
+|   |-- definitions.py            # Entidades e FeatureViews
+|   |-- data/                     # Parquet offline + SQLite online store
 |
 |-- monitoring/                   # Monitoramento
 |   |-- drift_dashboard.py        # Dashboard Streamlit de drift
@@ -57,16 +153,22 @@ passos-magicos-ml/
 |   |-- static/index.html         # Single-page app (auth, predicao, historico)
 |   |-- Dockerfile
 |
-|-- nginx/                        # Reverse proxy
+|-- nginx/                        # Reverse proxy (producao)
 |   |-- nginx.conf                # Rotas: /, /api, /docs, /drift, /mlflow, /signoz
 |
 |-- signoz/                       # Configuracoes SigNoz/OTel
+|   |-- dashboards/               # Dashboards predefinidos (JSON)
+|   |-- otel-collector-config.yaml
+|   |-- clickhouse/               # Configuracao do ClickHouse
+|
 |-- data/                         # Dados brutos e processados
 |-- docs/                         # PRD e Tech Spec
+|-- postman/                      # Colecao Postman
 |-- Dockerfile
 |-- docker-compose.yml            # Desenvolvimento
 |-- docker-compose.prod.yml       # Producao (todos os servicos + NGINX)
 |-- pyproject.toml
+|-- requirements.txt
 ```
 
 ---
@@ -202,9 +304,10 @@ docker compose --profile signoz up -d
 |---------|-----|---------|
 | API | http://localhost:8000 | `docker compose up app -d` |
 | Swagger UI | http://localhost:8000/docs | (incluso na API) |
+| Web UI | http://localhost:3000 | `docker compose up webapp -d` |
 | MLflow | http://localhost:5001 | `docker compose up mlflow -d` |
 | Drift Dashboard | http://localhost:8501 | `docker compose --profile monitoring up -d` |
-| SigNoz | http://localhost:8080 | `docker compose --profile signoz up -d` |
+| SigNoz | http://localhost:8080 | `docker compose up signoz-otel-collector -d` |
 
 ### Deploy de Producao (todos os servicos)
 
@@ -323,13 +426,14 @@ Alternativamente, acesse **http://localhost:8000/redoc** para a documentacao em 
 
 ### Postman Collection
 
-Uma colecao Postman com todos os endpoints esta disponivel em [`docs/postman_collection.json`](docs/postman_collection.json).
+Uma colecao Postman com todos os endpoints esta disponivel em [`postman/`](postman/) (inclui collection e environment).
 
 **Para importar:**
 1. Abra o Postman
 2. Clique em **Import** (canto superior esquerdo)
-3. Selecione o arquivo `docs/postman_collection.json`
-4. A colecao "Passos Magicos API" aparecera com os seguintes requests:
+3. Selecione o arquivo `postman/FIAP - Datathon.postman_collection.json`
+4. Importe tambem o environment `postman/FIAP-Local.postman_environment.json`
+5. A colecao "Passos Magicos API" aparecera com os seguintes requests:
    - **Login** - `POST /api/v1/auth/login`
    - **Health Check** - `GET /api/v1/health`
    - **Predict - Aluno Risco Alto** - aluno com indicadores baixos
@@ -492,7 +596,6 @@ O pipeline de treino integra com MLflow para rastreamento completo de experiment
 - **Parametros logados:** hiperparametros do classificador, estrategia de split, numero de features
 - **Metricas logadas:** F1 (weighted/macro), accuracy, precision, recall, AUC-ROC, matriz de confusao
 - **Artefatos:** pipeline sklearn completo versionado como artefato do run
-- **Model Registry:** o melhor modelo e registrado automaticamente para versionamento (staging/production)
 
 Acesso: `http://localhost:5001` (dev) ou `http://localhost/mlflow/` (producao via NGINX)
 
@@ -523,6 +626,64 @@ Acesso: `http://localhost:5001` (dev) ou `http://localhost/mlflow/` (producao vi
 | `auth.login.total` | Counter | Tentativas de login |
 | `auth.login.failures` | Counter | Falhas de autenticacao |
 | `model.load_time_ms` | Histogram | Tempo de carga do modelo |
+
+**Dashboards SigNoz predefinidos:**
+
+O projeto inclui dois dashboards prontos para importar no SigNoz:
+
+- **ML Predictions** — throughput de predicoes, latencia (p50/p95/p99), distribuicao de risco, probabilidade, latencia de feature engineering e inferencia
+- **API Health & Security** — tentativas de login (sucesso/falha), tempo de carga do modelo, request rate por rota, erros HTTP, latencia por endpoint
+
+Para provisionar automaticamente via API:
+
+```bash
+./scripts/provision_dashboards.sh http://localhost:8080
+```
+
+Ou importe manualmente: SigNoz UI -> Dashboards -> New Dashboard -> Import JSON (arquivos em `signoz/dashboards/`).
+
+### 7. Feature Store (Feast) - Opcional
+
+O projeto integra Feast Feature Store para centralizar e reutilizar features entre treino e servico, evitando training-serving skew.
+
+**Componentes:**
+- `feature_store/feature_store.yaml` — configuracao (provider local, offline parquet, online SQLite)
+- `feature_store/definitions.py` — entidade `student` e FeatureView com 22 features
+- `scripts/materialize_features.py` — carrega XLSX, aplica feature engineering, salva parquet e materializa no online store
+
+**Como usar:**
+
+```bash
+# 1. Materializar features (gera parquet a partir do XLSX)
+docker compose --profile feast run --rm materialize
+
+# 2. Treinar usando Feature Store
+USE_FEATURE_STORE=true docker compose --profile train run --rm train
+
+# 3. Subir API com Feature Store
+USE_FEATURE_STORE=true docker compose up app -d
+```
+
+> **Nota:** O Feature Store e opcional. Por padrao (`USE_FEATURE_STORE=false`), o pipeline carrega dados diretamente do XLSX e aplica feature engineering inline.
+
+### 8. Variaveis de Ambiente
+
+Todas as variaveis configuráveis do projeto:
+
+| Variavel | Padrao | Descricao |
+|----------|--------|-----------|
+| `JWT_SECRET_KEY` | `changeme-...` | Chave de assinatura JWT (**obrigatorio em producao**) |
+| `API_USERNAME` | `admin` | Usuario para login |
+| `API_PASSWORD` | `passos-magicos` | Senha para login |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `60` | Tempo de expiracao do token |
+| `ENVIRONMENT` | `development` | Ambiente (`development` ou `production`) |
+| `LOG_LEVEL` | `INFO` | Nivel de log |
+| `USE_FEATURE_STORE` | `false` | Usar Feast Feature Store em vez de feature engineering inline |
+| `MLFLOW_TRACKING_URI` | `http://mlflow:5000` | URI do servidor MLflow |
+| `MODEL_PATH` | `app/model/model.joblib` | Caminho do modelo treinado |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://signoz-otel-collector:4318` | Endpoint do OTel Collector |
+| `SIGNOZ_VERSION` | `v0.101.0` | Versao do SigNoz |
+| `SIGNOZ_OTELCOL_TAG` | `v0.129.8` | Versao do OTel Collector SigNoz |
 
 ---
 
