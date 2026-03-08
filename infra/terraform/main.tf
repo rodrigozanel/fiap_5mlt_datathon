@@ -62,7 +62,7 @@ resource "digitalocean_firewall" "app" {
   # SigNoz UI (dedicated port — SPA incompatible with subpath proxy)
   inbound_rule {
     protocol         = "tcp"
-    port_range       = "8080"
+    port_range       = "8443"
     source_addresses = ["0.0.0.0/0", "::/0"]
   }
 

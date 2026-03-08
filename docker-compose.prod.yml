@@ -234,7 +234,7 @@ services:
     logging: *default-logging
     command: [--config=/root/config/prometheus.yml]
     ports:
-      - "8080:8080"
+      - "8443:8080"
     volumes:
       - ./signoz/prometheus.yml:/root/config/prometheus.yml
       - ./signoz/dashboards:/root/config/dashboards

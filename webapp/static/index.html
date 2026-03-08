@@ -172,7 +172,7 @@
       <div class="app-info">
         <h3>SigNoz - Observabilidade</h3>
         <p>Traces distribuidos, metricas customizadas e logs centralizados. Dashboards de ML Predictions e API Health pre-configurados.</p>
-        <div class="app-url" id="url-signoz">:8080</div>
+        <div class="app-url" id="url-signoz">:8443</div>
       </div>
     </a>
 
@@ -276,7 +276,7 @@ function setupLinks() {
   const host = window.location.hostname;
 
   // SigNoz always on port 8080 (SPA incompatible with reverse proxy subpath)
-  const signozUrl = `http://${host}:8080`;
+  const signozUrl = `http://${host}:8443`;
   document.getElementById('card-signoz').href = signozUrl;
   document.getElementById('url-signoz').textContent = signozUrl;
 
