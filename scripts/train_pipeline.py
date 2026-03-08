@@ -1,11 +1,18 @@
 #!/usr/bin/env python3
 """End-to-end training pipeline: load data, train models, evaluate, and save the best."""
 
+import os
 from pathlib import Path
 
+import mlflow
 import pandas as pd
 
-from src.evaluate import compare_models, evaluate_model, get_classification_report
+from src.evaluate import (
+    compare_models,
+    evaluate_model,
+    get_classification_report,
+    get_confusion_matrix,
+)
 from src.preprocessing import prepare_dataset
 from src.train import save_model, train_model
 from src.utils import DATA_DIR, get_logger
@@ -18,6 +25,9 @@ DATA_FILE = "BASE DE DADOS PEDE 2024 - DATATHON.xlsx"
 SPLIT_STRATEGY = "stratified"  # "stratified" or "temporal"
 MODEL_TYPES = ["xgb", "rf", "lr"]  # Always available
 
+MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000")
+MLFLOW_EXPERIMENT = "passos-magicos-defasagem"
+
 
 def _try_lgbm() -> bool:
     """Check if LightGBM is available."""
@@ -29,8 +39,20 @@ def _try_lgbm() -> bool:
         return False
 
 
+def _get_model_params(pipeline) -> dict:
+    """Extract classifier parameters from a sklearn pipeline."""
+    classifier = pipeline.named_steps["classifier"]
+    return {k: v for k, v in classifier.get_params().items() if v is not None}
+
+
 def main() -> None:
     print("=== Passos Magicos - Training Pipeline ===\n")
+
+    # ── 0. Setup MLflow ─────────────────────────────────────────────
+    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+    mlflow.set_experiment(MLFLOW_EXPERIMENT)
+    print(f"MLflow tracking: {MLFLOW_TRACKING_URI}")
+    print(f"MLflow experiment: {MLFLOW_EXPERIMENT}\n")
 
     # ── 1. Locate data ────────────────────────────────────────────────
     xlsx_path = DATA_DIR / "raw" / DATA_FILE
@@ -67,13 +89,59 @@ def main() -> None:
         trained_models[mt] = pipeline
         print("done")
 
-    # ── 4. Evaluate and compare ───────────────────────────────────────
+    # ── 4. Evaluate, compare, and log to MLflow ───────────────────────
     print("\n=== Model Comparison ===")
     comparison = compare_models(trained_models, X_test, y_test)
     print(comparison.to_string())
 
     # Select the best by F1 weighted
     best_name = comparison.index[0]
+
+    # Log each model as a separate MLflow run
+    for model_name, pipeline in trained_models.items():
+        metrics = evaluate_model(pipeline, X_test, y_test)
+        cm = get_confusion_matrix(pipeline, X_test, y_test)
+        is_best = model_name == best_name
+
+        with mlflow.start_run(run_name=model_name):
+            # Dataset info
+            mlflow.log_params({
+                "model_type": model_name,
+                "split_strategy": SPLIT_STRATEGY,
+                "train_samples": len(X_train),
+                "test_samples": len(X_test),
+                "n_features": X_train.shape[1],
+                "features": ", ".join(X_train.columns.tolist()),
+            })
+
+            # Model hyperparameters
+            model_params = _get_model_params(pipeline)
+            mlflow.log_params({
+                f"hp_{k}": v for k, v in model_params.items()
+            })
+
+            # Metrics
+            mlflow.log_metrics(metrics)
+            mlflow.log_metrics({
+                "confusion_tn": int(cm[0][0]),
+                "confusion_fp": int(cm[0][1]),
+                "confusion_fn": int(cm[1][0]),
+                "confusion_tp": int(cm[1][1]),
+            })
+
+            # Tag best model
+            mlflow.set_tag("is_best", str(is_best))
+            mlflow.set_tag("model_type", model_name)
+
+            # Log the sklearn pipeline as an MLflow model
+            mlflow.sklearn.log_model(
+                pipeline,
+                artifact_path="model",
+                registered_model_name=f"passos-magicos-{model_name}" if is_best else None,
+            )
+
+            print(f"  MLflow: logged {model_name}" + (" (best)" if is_best else ""))
+
     best_model = trained_models[best_name]
     best_metrics = evaluate_model(best_model, X_test, y_test)
 

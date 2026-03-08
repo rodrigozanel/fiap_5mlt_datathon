@@ -20,6 +20,9 @@ opentelemetry-distro
 opentelemetry-exporter-otlp
 prometheus-client>=0.17
 
+# Experiment tracking
+mlflow>=2.12
+
 # Monitoring / Drift
 evidently>=0.4
 streamlit>=1.30
