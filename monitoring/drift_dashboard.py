@@ -165,14 +165,22 @@ if FEATURE_STORE_PARQUET.exists():
         with st.expander("Distribuicao por Ano"):
             ano_stats = df_fs.groupby("ano").agg(
                 registros=("ano", "size"),
-                defasagem=("target", "mean") if "target" in df_fs.columns else ("ano", "size"),
+                defasagem=("target", "mean")
+                if "target" in df_fs.columns
+                else ("ano", "size"),
             )
             if "target" in df_fs.columns:
-                ano_stats = df_fs.groupby("ano").agg(
-                    registros=("ano", "size"),
-                    pct_defasagem=("target", "mean"),
-                ).round(3)
-                ano_stats["pct_defasagem"] = ano_stats["pct_defasagem"].map("{:.1%}".format)
+                ano_stats = (
+                    df_fs.groupby("ano")
+                    .agg(
+                        registros=("ano", "size"),
+                        pct_defasagem=("target", "mean"),
+                    )
+                    .round(3)
+                )
+                ano_stats["pct_defasagem"] = ano_stats["pct_defasagem"].map(
+                    "{:.1%}".format
+                )
             else:
                 ano_stats = df_fs.groupby("ano").size().to_frame("registros")
             st.dataframe(ano_stats)

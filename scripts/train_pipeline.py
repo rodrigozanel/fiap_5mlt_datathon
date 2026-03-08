@@ -92,18 +92,24 @@ def main() -> None:
 
         y = df.pop("target")
         X = df
-        print(f"[Feature Store] Features: {X.shape[1]}, Target distribution: {dict(y.value_counts())}")
+        print(
+            f"[Feature Store] Features: {X.shape[1]}, Target distribution: {dict(y.value_counts())}"
+        )
 
         if SPLIT_STRATEGY == "temporal":
             train_mask = X["ano"].isin([2022, 2023])
             X_train, X_test = X[train_mask], X[~train_mask]
             y_train, y_test = y[train_mask], y[~train_mask]
-            print(f"[Feature Store] Temporal split: train=2022-2023 ({len(X_train)}), test=2024 ({len(X_test)})")
+            print(
+                f"[Feature Store] Temporal split: train=2022-2023 ({len(X_train)}), test=2024 ({len(X_test)})"
+            )
         else:
             X_train, X_test, y_train, y_test = train_test_split(
                 X, y, test_size=0.2, stratify=y, random_state=42
             )
-            print(f"[Feature Store] Stratified split: train={len(X_train)}, test={len(X_test)}")
+            print(
+                f"[Feature Store] Stratified split: train={len(X_train)}, test={len(X_test)}"
+            )
         print("[Feature Store] Data loaded successfully\n")
     else:
         xlsx_path = DATA_DIR / "raw" / DATA_FILE
