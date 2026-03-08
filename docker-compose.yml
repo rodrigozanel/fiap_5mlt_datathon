@@ -34,6 +34,7 @@ services:
       --port 5000
       --backend-store-uri sqlite:///mlflow/mlflow.db
       --default-artifact-root /mlflow/artifacts
+      --gunicorn-opts "--timeout 120"
     volumes:
       - mlflow-data:/mlflow
     ports:
@@ -44,8 +45,8 @@ services:
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
       interval: 30s
-      timeout: 5s
-      start_period: 10s
+      timeout: 10s
+      start_period: 30s
       retries: 3
 
   # One-shot: trains the model and saves to app/model/model.joblib
