@@ -24,6 +24,30 @@ services:
   # Passos Magicos ML - Training & API
   # ==========================================================================
 
+  # MLflow tracking server
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.22.0
+    container_name: passos-magicos-mlflow
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri sqlite:///mlflow/mlflow.db
+      --default-artifact-root /mlflow/artifacts
+    volumes:
+      - mlflow-data:/mlflow
+    ports:
+      - "5001:5000"
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
   # One-shot: trains the model and saves to app/model/model.joblib
   train:
     build: .
@@ -33,6 +57,10 @@ services:
       - ./app/model:/app/app/model
     environment:
       - PYTHONPATH=/app
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    depends_on:
+      mlflow:
+        condition: service_healthy
     command: python scripts/train_pipeline.py
     profiles: ["train"]
 
@@ -224,6 +252,7 @@ services:
       - app-network
 
 volumes:
+  mlflow-data:
   signoz-zookeeper-data:
   signoz-zookeeper-datalog:
   signoz-clickhouse-data:
