@@ -19,6 +19,15 @@ def _lgbm_available() -> bool:
         return False
 
 
+def _xgb_available() -> bool:
+    try:
+        from xgboost import XGBClassifier  # noqa: F401
+        XGBClassifier()  # triggers libomp load
+        return True
+    except (ImportError, OSError, Exception):
+        return False
+
+
 @pytest.fixture
 def training_data():
     """Generate simple training data."""
@@ -58,6 +67,14 @@ class TestGetModel:
     )
     def test_lgbm(self):
         model = _get_model("lgbm")
+        assert hasattr(model, "fit")
+        assert hasattr(model, "predict")
+
+    @pytest.mark.skipif(
+        not _xgb_available(), reason="XGBoost not available (missing libomp?)"
+    )
+    def test_xgb(self):
+        model = _get_model("xgb")
         assert hasattr(model, "fit")
         assert hasattr(model, "predict")
 
