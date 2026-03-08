@@ -26,8 +26,9 @@ A Associacao Passos Magicos atua ha 32 anos transformando a vida de criancas e j
 passos-magicos-ml/
 |-- app/                          # API FastAPI
 |   |-- main.py                   # Entry point, carrega modelo no startup
-|   |-- routes.py                 # POST /predict, GET /health
-|   |-- schemas.py                # Pydantic: StudentInput, PredictionOutput
+|   |-- routes.py                 # POST /api/v1/predict, GET /api/v1/health, POST /api/v1/auth/login
+|   |-- schemas.py                # Pydantic: StudentInput, PredictionOutput, LoginRequest, TokenResponse
+|   |-- auth.py                   # JWT: criacao e verificacao de tokens
 |   |-- model/
 |       |-- model.joblib           # Modelo treinado serializado
 |
@@ -78,7 +79,24 @@ Sao apenas **4 comandos**:
 cp "drive-download-20260301T222743Z-1-001/BASE DE DADOS PEDE 2024 - DATATHON.xlsx" data/raw/
 ```
 
-#### 2. Build da imagem Docker
+#### 2. Configurar variaveis de ambiente
+
+```bash
+cp .env.example .env
+```
+
+Edite o `.env` e defina pelo menos o `JWT_SECRET_KEY` com um valor seguro:
+
+```bash
+# .env
+JWT_SECRET_KEY=sua-chave-secreta-forte-aqui
+API_USERNAME=admin
+API_PASSWORD=sua-senha-aqui
+```
+
+> **Importante:** Nunca use o valor padrao `changeme-secret-key-for-development` em producao.
+
+#### 3. Build da imagem Docker
 
 ```bash
 docker compose build
@@ -86,7 +104,7 @@ docker compose build
 
 Isso cria a imagem com Python 3.13, LightGBM, scikit-learn, FastAPI e todas as dependencias. Leva ~2-3 minutos na primeira vez.
 
-#### 3. Treinar o modelo (dentro do Docker)
+#### 4. Treinar o modelo (dentro do Docker)
 
 ```bash
 docker compose --profile train run --rm train
@@ -125,7 +143,7 @@ Model saved to app/model/model.joblib
 
 O container e removido automaticamente (`--rm`), mas o `model.joblib` persiste na sua maquina em `app/model/` via volume mount.
 
-#### 4. Subir a API
+#### 5. Subir a API
 
 ```bash
 docker compose up app -d
@@ -134,15 +152,31 @@ docker compose up app -d
 Pronto! A API esta rodando em **http://localhost:8000**.
 
 Acesse:
-- **http://localhost:8000/health** - verificar se modelo carregou
+- **http://localhost:8000/api/v1/health** - verificar se modelo carregou
 - **http://localhost:8000/docs** - Swagger UI interativo (testar endpoints pelo navegador)
 - **http://localhost:8000/redoc** - Documentacao ReDoc
 
-#### 5. Testar uma predicao
+#### 6. Autenticar e testar uma predicao
+
+**Passo 1 - Obter token JWT:**
 
 ```bash
-curl -X POST http://localhost:8000/predict \
+curl -X POST http://localhost:8000/api/v1/auth/login \
   -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "passos-magicos"}'
+```
+
+Resposta:
+```json
+{"access_token": "<token>", "token_type": "bearer"}
+```
+
+**Passo 2 - Usar o token na predicao:**
+
+```bash
+curl -X POST http://localhost:8000/api/v1/predict \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
   -d '{
     "fase": 3, "idade": 14, "genero": "Feminino",
     "ano_ingresso": 2020, "inde": 6.5, "pedra": "Agata",
@@ -179,17 +213,21 @@ docker compose --profile signoz up -d
 # 1. Copiar dados
 cp "<caminho>/BASE DE DADOS PEDE 2024 - DATATHON.xlsx" data/raw/
 
-# 2. Build
+# 2. Configurar variaveis de ambiente
+cp .env.example .env
+# editar .env e definir JWT_SECRET_KEY, API_USERNAME, API_PASSWORD
+
+# 3. Build
 docker compose build
 
-# 3. Treinar modelo (dentro do Docker)
+# 4. Treinar modelo (dentro do Docker)
 docker compose --profile train run --rm train
 
-# 4. Subir API
+# 5. Subir API
 docker compose up app -d
 
-# 5. Verificar
-curl http://localhost:8000/health
+# 6. Verificar
+curl http://localhost:8000/api/v1/health
 
 # Parar tudo
 docker compose down
@@ -220,10 +258,42 @@ poetry run uvicorn app.main:app --reload --port 8000
 
 ## Documentacao da API
 
+### Endpoints
+
+| Metodo | Endpoint | Auth | Descricao |
+|--------|----------|------|-----------|
+| `GET` | `/api/v1/health` | Nao | Verifica status da API e se o modelo esta carregado |
+| `POST` | `/api/v1/auth/login` | Nao | Autentica e retorna um token JWT |
+| `POST` | `/api/v1/predict` | **Sim** | Prediz risco de defasagem de um aluno |
+
+### Autenticacao
+
+A API utiliza autenticacao JWT via Bearer token. As credenciais sao configuradas por variaveis de ambiente (veja `.env.example`).
+
+**Variaveis de ambiente:**
+
+| Variavel | Padrao | Descricao |
+|----------|--------|-----------|
+| `API_USERNAME` | `admin` | Usuario para login |
+| `API_PASSWORD` | `passos-magicos` | Senha para login |
+| `JWT_SECRET_KEY` | `changeme-secret-key-for-development` | Chave de assinatura JWT (trocar em producao) |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `60` | Tempo de expiracao do token |
+
+> **Atencao:** Em producao, defina `JWT_SECRET_KEY` como um segredo forte e unico.
+
+**Fluxo de autenticacao:**
+
+1. `POST /api/v1/auth/login` com `{"username": "...", "password": "..."}`
+2. Receba o `access_token` na resposta
+3. Inclua `Authorization: Bearer <token>` no header de todas as chamadas ao `/predict`
+
+No **Swagger UI** (`http://localhost:8000/docs`), clique em **Authorize** e insira o token para testar os endpoints autenticados interativamente.
+
 ### Swagger UI (Documentacao Interativa)
 
 Com a API rodando, acesse **http://localhost:8000/docs** no navegador para a documentacao Swagger completa e interativa. La voce pode:
 - Visualizar todos os endpoints com schemas de request/response
+- Autenticar via botao **Authorize** (insira o token obtido no login)
 - Testar cada endpoint diretamente pelo navegador (botao "Try it out")
 - Baixar o schema OpenAPI em JSON (`/openapi.json`)
 
@@ -238,7 +308,8 @@ Uma colecao Postman com todos os endpoints esta disponivel em [`docs/postman_col
 2. Clique em **Import** (canto superior esquerdo)
 3. Selecione o arquivo `docs/postman_collection.json`
 4. A colecao "Passos Magicos API" aparecera com os seguintes requests:
-   - **Health Check** - `GET /health`
+   - **Login** - `POST /api/v1/auth/login`
+   - **Health Check** - `GET /api/v1/health`
    - **Predict - Aluno Risco Alto** - aluno com indicadores baixos
    - **Predict - Aluno Risco Baixo** - aluno com indicadores altos
    - **Predict - Aluno Risco Medio** - aluno com indicadores medianos
@@ -255,7 +326,7 @@ A variavel `{{base_url}}` esta configurada como `http://localhost:8000` por padr
 ### Health Check
 
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:8000/api/v1/health
 ```
 
 Resposta:
@@ -263,11 +334,31 @@ Resposta:
 {"status": "healthy", "model_loaded": true}
 ```
 
+### Login
+
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "passos-magicos"}'
+```
+
+Resposta:
+```json
+{"access_token": "<jwt-token>", "token_type": "bearer"}
+```
+
 ### Predicao Individual
 
 ```bash
-curl -X POST http://localhost:8000/predict \
+# Obter token
+TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/login \
   -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "passos-magicos"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+# Fazer predicao
+curl -X POST http://localhost:8000/api/v1/predict \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{
     "fase": 3,
     "idade": 14,
@@ -306,11 +397,21 @@ Resposta:
 | medio | 0.3 - 0.6 | Atencao redobrada |
 | alto | >= 0.6 | Intervencao imediata |
 
+### Sem autenticacao (retorna 401)
+
+```bash
+curl -X POST http://localhost:8000/api/v1/predict \
+  -H "Content-Type: application/json" \
+  -d '{"fase": 3, ...}'
+# HTTP 401 - {"detail": "Not authenticated"}
+```
+
 ### Input invalido (retorna 422)
 
 ```bash
-curl -X POST http://localhost:8000/predict \
+curl -X POST http://localhost:8000/api/v1/predict \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"fase": "invalido"}'
 ```
 
@@ -362,6 +463,6 @@ Metricas reportadas:
 
 ### 5. Monitoramento
 
-- **Logs de predicao:** Cada request ao `/predict` gera log JSON em `logs/predictions.log`
+- **Logs de predicao:** Cada request ao `/api/v1/predict` gera log JSON em `logs/predictions.log`
 - **Dashboard de drift:** Streamlit em `http://localhost:8501` mostra distribuicao de features, probabilidades e latencia
 - **Observabilidade:** OpenTelemetry + SigNoz para traces distribuidos, metricas de sistema e logs centralizados
