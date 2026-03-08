@@ -12,9 +12,10 @@ A Associacao Passos Magicos atua ha 32 anos transformando a vida de criancas e j
 
 **Stack:**
 - Python 3.13
-- scikit-learn + LightGBM
+- scikit-learn + LightGBM + XGBoost
 - FastAPI + Uvicorn
-- Docker + Docker Compose
+- Docker + Docker Compose + NGINX
+- MLflow (experiment tracking e model registry)
 - OpenTelemetry + SigNoz (observabilidade)
 - Streamlit + Evidently (monitoramento de drift)
 
@@ -51,11 +52,20 @@ passos-magicos-ml/
 |   |-- drift_dashboard.py        # Dashboard Streamlit de drift
 |   |-- logger.py                 # Logging estruturado JSON
 |
+|-- webapp/                       # Interface web
+|   |-- server.py                 # Servidor FastAPI para a UI
+|   |-- static/index.html         # Single-page app (auth, predicao, historico)
+|   |-- Dockerfile
+|
+|-- nginx/                        # Reverse proxy
+|   |-- nginx.conf                # Rotas: /, /api, /docs, /drift, /mlflow, /signoz
+|
 |-- signoz/                       # Configuracoes SigNoz/OTel
 |-- data/                         # Dados brutos e processados
 |-- docs/                         # PRD e Tech Spec
 |-- Dockerfile
-|-- docker-compose.yml
+|-- docker-compose.yml            # Desenvolvimento
+|-- docker-compose.prod.yml       # Producao (todos os servicos + NGINX)
 |-- pyproject.toml
 ```
 
@@ -102,15 +112,19 @@ API_PASSWORD=sua-senha-aqui
 docker compose build
 ```
 
-Isso cria a imagem com Python 3.13, LightGBM, scikit-learn, FastAPI e todas as dependencias. Leva ~2-3 minutos na primeira vez.
+Isso cria a imagem com Python 3.13, LightGBM, scikit-learn, FastAPI, MLflow e todas as dependencias. Leva ~2-3 minutos na primeira vez.
 
-#### 4. Treinar o modelo (dentro do Docker)
+#### 4. Subir o MLflow e treinar o modelo
 
 ```bash
+# Subir o MLflow tracking server
+docker compose up mlflow -d
+
+# Treinar (dentro do Docker)
 docker compose --profile train run --rm train
 ```
 
-Este comando sobe um container temporario que:
+O comando de treino sobe um container temporario que:
 1. **Carrega** as 3 abas do XLSX (PEDE2022, PEDE2023, PEDE2024) - ~3000 registros
 2. **Padroniza** os nomes de colunas (diferem entre anos: "Defas" vs "Defasagem", "Matem" vs "Mat", etc.)
 3. **Normaliza** genero ("Menina"/"Menino" -> "Feminino"/"Masculino") e booleanos ("Sim"/"Nao" -> 1/0)
@@ -120,26 +134,10 @@ Este comando sobe um container temporario que:
 7. **Divide** em treino/teste (estratificado 80/20)
 8. **Treina 4 modelos:** LightGBM, XGBoost, Random Forest, Logistic Regression
 9. **Compara** os modelos por F1-Score (weighted) e seleciona o melhor
-10. **Salva** o modelo vencedor em `app/model/model.joblib`
+10. **Registra cada modelo no MLflow** com metricas, hiperparametros e artefatos
+11. **Salva** o modelo vencedor em `app/model/model.joblib`
 
-Saida esperada:
-```
-=== Passos Magicos - Training Pipeline ===
-Loading data from data/raw/BASE DE DADOS PEDE 2024 - DATATHON.xlsx...
-Combined dataset: XXXX rows, XX features
-Training lgbm... done
-Training rf... done
-Training lr... done
-
-=== Model Comparison ===
-          f1_weighted  accuracy  auc_roc
-lgbm         0.XXXX    0.XXXX   0.XXXX
-rf           0.XXXX    0.XXXX   0.XXXX
-lr           0.XXXX    0.XXXX   0.XXXX
-
-Best model: lgbm (F1=0.XXXX)
-Model saved to app/model/model.joblib
-```
+Apos o treino, acesse **http://localhost:5001** para visualizar os experimentos no MLflow UI.
 
 O container e removido automaticamente (`--rm`), mas o `model.joblib` persiste na sua maquina em `app/model/` via volume mount.
 
@@ -187,7 +185,7 @@ curl -X POST http://localhost:8000/api/v1/predict \
   }'
 ```
 
-### Servicos Opcionais
+### Servicos Opcionais (Desenvolvimento)
 
 ```bash
 # Dashboard de monitoramento de drift (Streamlit)
@@ -199,13 +197,33 @@ docker compose --profile signoz up -d
 # -> http://localhost:8080 (SigNoz UI)
 ```
 
-**Todos os servicos:**
+**Todos os servicos (desenvolvimento):**
 | Servico | URL | Comando |
 |---------|-----|---------|
 | API | http://localhost:8000 | `docker compose up app -d` |
 | Swagger UI | http://localhost:8000/docs | (incluso na API) |
+| MLflow | http://localhost:5001 | `docker compose up mlflow -d` |
 | Drift Dashboard | http://localhost:8501 | `docker compose --profile monitoring up -d` |
 | SigNoz | http://localhost:8080 | `docker compose --profile signoz up -d` |
+
+### Deploy de Producao (todos os servicos)
+
+O `docker-compose.prod.yml` sobe todos os servicos atras de um NGINX reverse proxy na porta 80:
+
+```bash
+docker compose -f docker-compose.prod.yml up --build -d
+```
+
+**Rotas disponíveis (porta 80):**
+| Rota | Servico |
+|------|---------|
+| `/` | Interface Web (auth, predicao, historico) |
+| `/api/v1/*` | API FastAPI |
+| `/docs` | Swagger UI |
+| `/redoc` | ReDoc |
+| `/mlflow/` | MLflow (experimentos e model registry) |
+| `/drift/` | Dashboard de drift (Streamlit) |
+| `/signoz/` | SigNoz (traces, metricas, logs) |
 
 ### Resumo - Todos os Comandos
 
@@ -220,7 +238,8 @@ cp .env.example .env
 # 3. Build
 docker compose build
 
-# 4. Treinar modelo (dentro do Docker)
+# 4. Subir MLflow e treinar modelo
+docker compose up mlflow -d
 docker compose --profile train run --rm train
 
 # 5. Subir API
@@ -228,6 +247,9 @@ docker compose up app -d
 
 # 6. Verificar
 curl http://localhost:8000/api/v1/health
+
+# Ou: subir TUDO em producao (NGINX + API + MLflow + Drift + SigNoz + Web UI)
+docker compose -f docker-compose.prod.yml up --build -d
 
 # Parar tudo
 docker compose down
@@ -451,6 +473,7 @@ INDE, IAA, IEG, IPS, IDA, IPP, IPV, IAN, notas (Mat/Por/Ing), idade, ponto_virad
 - **Tuning:** GridSearchCV no melhor modelo
 - **Metrica principal:** F1-Score (weighted)
 - **Serializacao:** joblib
+- **Experiment tracking:** MLflow (cada run registra metricas, hiperparametros e artefatos)
 
 ### 4. Avaliacao (`src/evaluate.py`)
 
@@ -461,11 +484,45 @@ Metricas reportadas:
 - Matriz de confusao
 - Classification report
 
-### 5. Monitoramento
+### 5. Experiment Tracking (`MLflow`)
+
+O pipeline de treino integra com MLflow para rastreamento completo de experimentos:
+
+- **Cada modelo** treinado e registrado como um run separado no MLflow
+- **Parametros logados:** hiperparametros do classificador, estrategia de split, numero de features
+- **Metricas logadas:** F1 (weighted/macro), accuracy, precision, recall, AUC-ROC, matriz de confusao
+- **Artefatos:** pipeline sklearn completo versionado como artefato do run
+- **Model Registry:** o melhor modelo e registrado automaticamente para versionamento (staging/production)
+
+Acesso: `http://localhost:5001` (dev) ou `http://localhost/mlflow/` (producao via NGINX)
+
+### 6. Monitoramento e Observabilidade
 
 - **Logs de predicao:** Cada request ao `/api/v1/predict` gera log JSON em `logs/predictions.log`
-- **Dashboard de drift:** Streamlit em `http://localhost:8501` mostra distribuicao de features, probabilidades e latencia
-- **Observabilidade:** OpenTelemetry + SigNoz para traces distribuidos, metricas de sistema e logs centralizados
+- **Dashboard de drift:** Streamlit mostra distribuicao de features, probabilidades e latencia
+- **OpenTelemetry + SigNoz:** traces distribuidos, metricas customizadas e logs centralizados
+
+**Spans customizados (OTel):**
+
+| Span | O que mede |
+|------|-----------|
+| `model.load` | Tempo de carga do modelo no startup |
+| `auth.login` | Tentativas de login (sucesso/falha) |
+| `predict` | Span pai da predicao com atributos de negocio (risco, probabilidade, dados do aluno) |
+| `predict.feature_engineering` | Duracao do feature engineering |
+| `predict.model_inference` | Duracao da inferencia do modelo |
+
+**Metricas customizadas (OTel):**
+
+| Metrica | Tipo | Valor |
+|---------|------|-------|
+| `predictions.total` | Counter | Volume de uso da API |
+| `predictions.risk_level` | Counter por nivel | Distribuicao de risco (baixo/medio/alto) |
+| `predictions.probability` | Histogram | Distribuicao de probabilidades preditas |
+| `predictions.latency_ms` | Histogram | Latencia end-to-end (P50/P95/P99) |
+| `auth.login.total` | Counter | Tentativas de login |
+| `auth.login.failures` | Counter | Falhas de autenticacao |
+| `model.load_time_ms` | Histogram | Tempo de carga do modelo |
 
 ---
 

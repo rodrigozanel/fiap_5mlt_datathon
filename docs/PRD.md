@@ -41,7 +41,12 @@
 | RF11 | Observabilidade com OpenTelemetry: traces distribuidos, metricas e logs | Media |
 | RF12 | Dashboard SigNoz para visualizacao de traces, metricas e logs | Media |
 | RF13 | Instrumentacao automatica da API (FastAPI, HTTP clients) | Media |
-| RF14 | Spans customizados no pipeline de predicao (load model, validate, predict) | Baixa |
+| RF14 | Spans customizados no pipeline de predicao (model.load, auth.login, predict, feature_engineering, model_inference) | Media |
+| RF15 | Metricas customizadas OTel (predictions.total, predictions.risk_level, predictions.latency_ms, auth.login.failures) | Media |
+| RF16 | Experiment tracking com MLflow: metricas, hiperparametros, artefatos e model registry | Media |
+| RF17 | Interface web para interacao com a API (auth, predicao, historico) | Media |
+| RF18 | NGINX reverse proxy unificando todos os servicos em porta unica | Media |
+| RF19 | Docker Compose de producao com todos os servicos integrados | Media |
 
 ---
 
@@ -57,6 +62,8 @@
 | RNF06 | Cobertura de testes | >= 80% |
 | RNF07 | Observabilidade | Traces, metricas e logs via OTel + SigNoz |
 | RNF08 | Dashboard de observabilidade | SigNoz UI acessivel em localhost:8080 |
+| RNF09 | Experiment tracking | MLflow UI acessivel em localhost:5001 |
+| RNF10 | Deploy unificado | Todos os servicos acessiveis via NGINX na porta 80 |
 
 ---
 
@@ -156,20 +163,90 @@ O sistema inclui stack completa de observabilidade baseada em OpenTelemetry + Si
 | Pilar | Ferramenta | O que captura |
 |-------|-----------|---------------|
 | **Traces** | OTel + SigNoz | Fluxo completo de cada request, spans por etapa da predicao |
-| **Metricas** | OTel + Prometheus | Request count, latencia, predicoes por tipo, model loaded |
+| **Metricas** | OTel + SigNoz | Request count, latencia, predicoes por tipo, model loaded |
 | **Logs** | OTel + SigNoz | Logs estruturados JSON com correlacao de trace |
 
+**Spans customizados:**
+- `model.load` — tempo de carga do modelo no startup
+- `auth.login` — tentativas de autenticacao com atributo sucesso/falha
+- `predict` — span pai com atributos de negocio (risco, probabilidade, dados do aluno)
+- `predict.feature_engineering` — duracao do feature engineering
+- `predict.model_inference` — duracao da inferencia do modelo
+
+**Metricas customizadas:**
+- `predictions.total` — contador de predicoes servidas
+- `predictions.risk_level` — contador por nivel de risco (baixo/medio/alto)
+- `predictions.probability` — histograma de probabilidades preditas
+- `predictions.latency_ms` — histograma de latencia end-to-end
+- `auth.login.total` — contador de tentativas de login
+- `auth.login.failures` — contador de falhas de autenticacao
+- `model.load_time_ms` — histograma de tempo de carga do modelo
+
 **Acesso:**
-- SigNoz UI: `http://localhost:8080`
+- SigNoz UI: `http://localhost:8080` (dev) ou `http://localhost/signoz/` (producao)
 - OTel Collector gRPC: `localhost:4317`
 - OTel Collector HTTP: `localhost:4318`
 
 ---
 
-## 10. Fora de Escopo
+## 10. Experiment Tracking (MLflow)
+
+O pipeline de treino integra com MLflow para rastreamento completo de experimentos:
+
+| O que e logado | Detalhes |
+|----------------|----------|
+| **Parametros** | Hiperparametros do classificador, estrategia de split, numero de features, lista de features |
+| **Metricas** | F1 (weighted/macro), accuracy, precision, recall, AUC-ROC, matriz de confusao |
+| **Artefatos** | Pipeline sklearn completo serializado |
+| **Model Registry** | Melhor modelo registrado automaticamente para versionamento (staging/production) |
+
+Cada modelo treinado (LightGBM, XGBoost, Random Forest, Logistic Regression) gera um run separado. O melhor modelo e marcado com a tag `is_best=True`.
+
+**Acesso:**
+- MLflow UI: `http://localhost:5001` (dev) ou `http://localhost/mlflow/` (producao)
+
+---
+
+## 11. Interface Web
+
+Interface web single-page para interacao com a API, incluindo:
+
+- **Autenticacao:** formulario de login com feedback visual
+- **Health check:** verificacao do status da API e modelo
+- **Formulario de predicao:** todos os campos de entrada com presets de exemplo (risco alto/baixo)
+- **Resultado visual:** badge colorido com nivel de risco e probabilidade
+- **Historico local:** tabela com todas as predicoes realizadas (persistido em disco)
+- **Links de navegacao:** acesso direto a Swagger, ReDoc, MLflow, Drift Dashboard e SigNoz
+
+**Acesso:**
+- `http://localhost/` (producao via NGINX)
+
+---
+
+## 12. Arquitetura de Producao
+
+Em producao, todos os servicos rodam atras de um NGINX reverse proxy na porta 80:
+
+| Rota | Servico | Descricao |
+|------|---------|-----------|
+| `/` | Web UI | Interface web (auth, predicao, historico) |
+| `/api/v1/*` | FastAPI | API de predicao |
+| `/docs` | Swagger UI | Documentacao interativa da API |
+| `/redoc` | ReDoc | Documentacao alternativa |
+| `/mlflow/` | MLflow | Experiment tracking e model registry |
+| `/drift/` | Streamlit | Dashboard de monitoramento de drift |
+| `/signoz/` | SigNoz | Observabilidade (traces, metricas, logs) |
+
+```bash
+# Subir todos os servicos
+docker compose -f docker-compose.prod.yml up --build -d
+```
+
+---
+
+## 13. Fora de Escopo
 
 - Deploy em nuvem (sera local com Docker)
-- Interface grafica para usuario final
 - Retreinamento automatico do modelo
 - Integracao com sistemas da Passos Magicos
 - Processamento de linguagem natural nas recomendacoes textuais (MVP)
