@@ -85,11 +85,11 @@
 <nav class="navbar">
   <h1>Passos Magicos</h1>
   <div class="nav-links">
-    <a href="/docs" target="_blank">API Docs (Swagger)</a>
-    <a href="/redoc" target="_blank">ReDoc</a>
-    <a href="/drift/" target="_blank">Drift Dashboard</a>
-    <a href="/mlflow/" target="_blank">MLflow (Experimentos)</a>
-    <a href="/signoz/" target="_blank">SigNoz (Observabilidade)</a>
+    <a id="link-docs" href="/docs" target="_blank">API Docs (Swagger)</a>
+    <a id="link-redoc" href="/redoc" target="_blank">ReDoc</a>
+    <a id="link-drift" href="/drift/" target="_blank">Drift Dashboard</a>
+    <a id="link-mlflow" href="/mlflow/" target="_blank">MLflow (Experimentos)</a>
+    <a id="link-signoz" href="/signoz/" target="_blank">SigNoz (Observabilidade)</a>
   </div>
 </nav>
 
@@ -251,7 +251,10 @@
 </div>
 
 <script>
-const API_BASE = '/api/v1';
+// In dev mode (port 3000), API runs on port 8000; in prod (NGINX), same origin.
+const isDevMode = window.location.port === '3000';
+const API_BASE = isDevMode ? `http://${window.location.hostname}:8000/api/v1` : '/api/v1';
+const WEBAPP_BASE = isDevMode ? `http://${window.location.hostname}:3000` : '';
 let token = null;
 
 // -- Health --
@@ -360,7 +363,7 @@ async function doPrediction() {
       `Probabilidade de defasagem: ${(data.probability * 100).toFixed(1)}% | Predicao: ${data.prediction === 1 ? 'Com Defasagem' : 'Sem Defasagem'}`;
 
     // Save to history
-    await fetch('/history', {
+    await fetch(WEBAPP_BASE + '/history', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({input: body, output: data})
@@ -377,7 +380,7 @@ async function doPrediction() {
 async function loadHistory() {
   const container = document.getElementById('history-container');
   try {
-    const res = await fetch('/history');
+    const res = await fetch(WEBAPP_BASE + '/history');
     const records = await res.json();
     if (!records.length) {
       container.innerHTML = '<div class="empty-state">Nenhuma predicao realizada ainda.</div>';
@@ -425,7 +428,26 @@ function fillSampleHigh() {
   document.getElementById('indicado_bolsa').value = 'false';
 }
 
+// -- Environment detection --
+// If running on port 3000 (dev), link to services on their own ports.
+// If running behind NGINX (port 80), use relative paths.
+function setupLinks() {
+  const loc = window.location;
+  const isDevMode = loc.port === '3000';
+
+  if (isDevMode) {
+    const host = loc.hostname;
+    document.getElementById('link-docs').href = `http://${host}:8000/docs`;
+    document.getElementById('link-redoc').href = `http://${host}:8000/redoc`;
+    document.getElementById('link-drift').href = `http://${host}:8501`;
+    document.getElementById('link-mlflow').href = `http://${host}:5001`;
+    document.getElementById('link-signoz').href = `http://${host}:8080`;
+  }
+  // In production (behind NGINX), the default relative hrefs work as-is.
+}
+
 // -- Init --
+setupLinks();
 checkHealth();
 loadHistory();
 </script>

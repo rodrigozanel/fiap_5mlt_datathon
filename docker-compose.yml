@@ -108,6 +108,18 @@ services:
       - app-network
     restart: unless-stopped
 
+  # Web UI
+  webapp:
+    build: ./webapp
+    container_name: passos-magicos-webapp
+    ports:
+      - "3000:3000"
+    volumes:
+      - webapp-data:/app/data
+    networks:
+      - app-network
+    restart: unless-stopped
+
   # Drift monitoring dashboard
   dashboard:
     build: .
@@ -273,6 +285,7 @@ services:
 
 volumes:
   mlflow-data:
+  webapp-data:
   signoz-zookeeper-data:
   signoz-zookeeper-datalog:
   signoz-clickhouse-data:
