@@ -27,9 +27,12 @@ logger = get_logger("train_pipeline")
 DATA_FILE = "BASE DE DADOS PEDE 2024 - DATATHON.xlsx"
 SPLIT_STRATEGY = "stratified"  # "stratified" or "temporal"
 MODEL_TYPES = ["xgb", "rf", "lr"]  # Always available
+USE_FEATURE_STORE = os.getenv("USE_FEATURE_STORE", "false").lower() == "true"
 
 MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000")
 MLFLOW_EXPERIMENT = "passos-magicos-defasagem"
+
+FEATURE_STORE_DIR = Path(__file__).resolve().parent.parent / "feature_store"
 
 
 def _try_lgbm() -> bool:
@@ -57,19 +60,44 @@ def main() -> None:
     print(f"MLflow tracking: {MLFLOW_TRACKING_URI}")
     print(f"MLflow experiment: {MLFLOW_EXPERIMENT}\n")
 
-    # ── 1. Locate data ────────────────────────────────────────────────
-    xlsx_path = DATA_DIR / "raw" / DATA_FILE
-    if not xlsx_path.exists():
-        print(f"ERROR: Dataset not found at {xlsx_path}")
-        print(f"Copy the XLSX file to: {xlsx_path}")
-        print(f"  cp '<download-dir>/{DATA_FILE}' {xlsx_path}")
-        raise SystemExit(1)
+    # ── 1. Load data ────────────────────────────────────────────────
+    if USE_FEATURE_STORE:
+        print("Loading features from Feast Feature Store...")
+        from feast import FeatureStore
+        from sklearn.model_selection import train_test_split
 
-    # ── 2. Load, preprocess, and split ────────────────────────────────
-    print(f"Loading data from {xlsx_path}...")
-    X_train, X_test, y_train, y_test = prepare_dataset(
-        xlsx_path, strategy=SPLIT_STRATEGY
-    )
+        store = FeatureStore(repo_path=str(FEATURE_STORE_DIR))
+        parquet_path = FEATURE_STORE_DIR / "data" / "student_features.parquet"
+        df = pd.read_parquet(parquet_path)
+
+        # Drop Feast metadata columns
+        drop = ["student_id", "event_timestamp"]
+        df = df.drop(columns=[c for c in drop if c in df.columns])
+
+        y = df.pop("target")
+        X = df
+
+        if SPLIT_STRATEGY == "temporal":
+            train_mask = X["ano"].isin([2022, 2023])
+            X_train, X_test = X[train_mask], X[~train_mask]
+            y_train, y_test = y[train_mask], y[~train_mask]
+        else:
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, test_size=0.2, stratify=y, random_state=42
+            )
+        print(f"  Source: Feature Store ({parquet_path})")
+    else:
+        xlsx_path = DATA_DIR / "raw" / DATA_FILE
+        if not xlsx_path.exists():
+            print(f"ERROR: Dataset not found at {xlsx_path}")
+            print(f"Copy the XLSX file to: {xlsx_path}")
+            print(f"  cp '<download-dir>/{DATA_FILE}' {xlsx_path}")
+            raise SystemExit(1)
+
+        print(f"Loading data from {xlsx_path}...")
+        X_train, X_test, y_train, y_test = prepare_dataset(
+            xlsx_path, strategy=SPLIT_STRATEGY
+        )
     print(
         f"Dataset split: {len(X_train)} train, {len(X_test)} test, "
         f"{X_train.shape[1]} features"
@@ -132,9 +160,10 @@ def main() -> None:
                 "confusion_tp": int(cm[1][1]),
             })
 
-            # Tag best model
+            # Tags
             mlflow.set_tag("is_best", str(is_best))
             mlflow.set_tag("model_type", model_name)
+            mlflow.set_tag("feature_source", "feast" if USE_FEATURE_STORE else "inline")
 
             # Log the sklearn pipeline as an MLflow artifact
             mlflow.sklearn.log_model(pipeline, artifact_path="model")

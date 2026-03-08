@@ -49,6 +49,20 @@ services:
       start_period: 30s
       retries: 3
 
+  # One-shot: materializes features into Feast offline/online stores
+  materialize:
+    build: .
+    container_name: passos-magicos-materialize
+    volumes:
+      - ./data/raw:/app/data/raw:ro
+      - ./feature_store:/app/feature_store
+    environment:
+      - PYTHONPATH=/app
+    command: python scripts/materialize_features.py
+    networks:
+      - app-network
+    profiles: ["feast"]
+
   # One-shot: trains the model and saves to app/model/model.joblib
   train:
     build: .
@@ -56,9 +70,11 @@ services:
     volumes:
       - ./data/raw:/app/data/raw:ro
       - ./app/model:/app/app/model
+      - ./feature_store:/app/feature_store
     environment:
       - PYTHONPATH=/app
       - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - USE_FEATURE_STORE=${USE_FEATURE_STORE:-false}
     depends_on:
       mlflow:
         condition: service_healthy
@@ -76,10 +92,12 @@ services:
     volumes:
       - ./logs:/app/logs
       - ./app/model:/app/app/model
+      - ./feature_store:/app/feature_store
     environment:
       - PYTHONPATH=/app
       - ENVIRONMENT=development
       - LOG_LEVEL=INFO
+      - USE_FEATURE_STORE=${USE_FEATURE_STORE:-false}
       # OpenTelemetry (funciona com ou sem SigNoz)
       - OTEL_SERVICE_NAME=passos-magicos-ml
       - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf

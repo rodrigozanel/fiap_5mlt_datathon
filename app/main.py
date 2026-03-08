@@ -8,7 +8,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from opentelemetry.trace import StatusCode
 
-from app.routes import router, set_model
+from app.routes import init_feature_store, router, set_model
 from app.telemetry import get_tracer, init_telemetry, record_model_load
 from src.utils import MODEL_DIR, get_logger
 
@@ -41,6 +41,9 @@ async def lifespan(app: FastAPI):
             span.set_attribute("model.loaded", False)
             span.set_status(StatusCode.ERROR, "Model file not found")
             logger.warning(f"Model not found at {model_path}. /predict will return 503.")
+
+    # Initialize Feature Store (if enabled)
+    init_feature_store()
 
     yield
 

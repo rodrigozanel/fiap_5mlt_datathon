@@ -23,6 +23,9 @@ prometheus-client>=0.17
 # Experiment tracking
 mlflow==2.22.0
 
+# Feature Store
+feast[sqlite]>=0.40
+
 # Monitoring / Drift
 evidently>=0.4
 streamlit>=1.30

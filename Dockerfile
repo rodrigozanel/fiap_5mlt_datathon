@@ -21,6 +21,7 @@ COPY app/ app/
 COPY src/ src/
 COPY scripts/ scripts/
 COPY monitoring/ monitoring/
+COPY feature_store/ feature_store/
 
 # Create directories
 RUN mkdir -p logs data/raw data/processed

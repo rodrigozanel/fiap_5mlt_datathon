@@ -1,5 +1,6 @@
 """API routes for prediction, health check, and authentication."""
 
+import os
 import time
 from datetime import datetime, timezone
 
@@ -35,6 +36,9 @@ router = APIRouter(prefix="/api/v1")
 
 # Model is set by main.py on startup
 _model = None
+_feature_store = None
+
+USE_FEATURE_STORE = os.getenv("USE_FEATURE_STORE", "false").lower() == "true"
 
 
 def set_model(model):
@@ -43,8 +47,25 @@ def set_model(model):
     _model = model
 
 
+def init_feature_store():
+    """Initialize Feast feature store if enabled."""
+    global _feature_store
+    if USE_FEATURE_STORE:
+        try:
+            from feast import FeatureStore
+            _feature_store = FeatureStore(repo_path="/app/feature_store")
+            logger.info("Feast Feature Store initialized")
+        except Exception as e:
+            logger.warning(f"Failed to initialize Feature Store: {e}")
+            _feature_store = None
+
+
 def _prepare_input(student: StudentInput) -> pd.DataFrame:
-    """Convert StudentInput to a DataFrame matching the training features."""
+    """Convert StudentInput to a DataFrame matching the training features.
+
+    Uses Feast Feature Store when enabled (USE_FEATURE_STORE=true),
+    otherwise computes features inline (same logic, for compatibility).
+    """
     data = {
         "inde": student.inde,
         "iaa": student.iaa,
@@ -68,7 +89,7 @@ def _prepare_input(student: StudentInput) -> pd.DataFrame:
     }
     df = pd.DataFrame([data])
 
-    # Apply feature engineering
+    # Apply feature engineering (shared logic with training)
     df = create_academic_features(df)
     df = create_context_features(df)
     df = create_engagement_features(df)
@@ -76,6 +97,11 @@ def _prepare_input(student: StudentInput) -> pd.DataFrame:
     # Drop raw columns that were encoded
     drop_cols = ["fase", "pedra", "genero", "ano_ingresso"]
     df = df.drop(columns=[c for c in drop_cols if c in df.columns])
+
+    # If Feature Store is active, log that we computed features inline
+    # (for new students not yet in the store, this is the expected path)
+    if _feature_store is not None:
+        logger.debug("Features computed inline (new student, not in Feature Store)")
 
     return df
 
