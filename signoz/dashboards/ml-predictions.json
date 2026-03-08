@@ -1,0 +1,499 @@
+{
+  "title": "Passos Magicos - ML Predictions",
+  "description": "Monitoring dashboard for ML prediction metrics: throughput, latency, risk distribution, and probability analysis",
+  "tags": ["ml", "predictions", "passos-magicos"],
+  "layout": [
+    {"i": "predictions-rate", "w": 6, "h": 6, "x": 0, "y": 0},
+    {"i": "predictions-total", "w": 3, "h": 6, "x": 6, "y": 0},
+    {"i": "active-risk-levels", "w": 3, "h": 6, "x": 9, "y": 0},
+    {"i": "latency-p50-p95-p99", "w": 6, "h": 6, "x": 0, "y": 6},
+    {"i": "probability-distribution", "w": 6, "h": 6, "x": 6, "y": 6},
+    {"i": "risk-breakdown", "w": 6, "h": 6, "x": 0, "y": 12},
+    {"i": "latency-avg", "w": 3, "h": 6, "x": 6, "y": 12},
+    {"i": "latency-max", "w": 3, "h": 6, "x": 9, "y": 12},
+    {"i": "feature-engineering-latency", "w": 6, "h": 6, "x": 0, "y": 18},
+    {"i": "model-inference-latency", "w": 6, "h": 6, "x": 6, "y": 18}
+  ],
+  "widgets": [
+    {
+      "id": "predictions-rate",
+      "title": "Prediction Rate (per minute)",
+      "description": "Rate of predictions served by the API",
+      "panelTypes": "graph",
+      "query": {
+        "queryType": "builder",
+        "promql": [],
+        "builder": {
+          "queryData": [
+            {
+              "dataSource": "metrics",
+              "queryName": "A",
+              "aggregateOperator": "rate",
+              "aggregateAttribute": {
+                "key": "predictions.total",
+                "dataType": "float64",
+                "type": "Sum",
+                "isColumn": false
+              },
+              "timeAggregation": "rate",
+              "spaceAggregation": "sum",
+              "filters": {"items": [], "op": "AND"},
+              "expression": "A",
+              "disabled": false,
+              "groupBy": [],
+              "reduceTo": "last",
+              "having": []
+            }
+          ],
+          "queryFormulas": []
+        },
+        "clickhouse_sql": []
+      }
+    },
+    {
+      "id": "predictions-total",
+      "title": "Total Predictions",
+      "description": "Cumulative number of predictions served",
+      "panelTypes": "value",
+      "query": {
+        "queryType": "builder",
+        "promql": [],
+        "builder": {
+          "queryData": [
+            {
+              "dataSource": "metrics",
+              "queryName": "A",
+              "aggregateOperator": "sum",
+              "aggregateAttribute": {
+                "key": "predictions.total",
+                "dataType": "float64",
+                "type": "Sum",
+                "isColumn": false
+              },
+              "timeAggregation": "increase",
+              "spaceAggregation": "sum",
+              "filters": {"items": [], "op": "AND"},
+              "expression": "A",
+              "disabled": false,
+              "groupBy": [],
+              "reduceTo": "last",
+              "having": []
+            }
+          ],
+          "queryFormulas": []
+        },
+        "clickhouse_sql": []
+      }
+    },
+    {
+      "id": "active-risk-levels",
+      "title": "Predictions by Risk Level",
+      "description": "Count of predictions grouped by risk classification",
+      "panelTypes": "value",
+      "query": {
+        "queryType": "builder",
+        "promql": [],
+        "builder": {
+          "queryData": [
+            {
+              "dataSource": "metrics",
+              "queryName": "A",
+              "aggregateOperator": "sum",
+              "aggregateAttribute": {
+                "key": "predictions.risk_level",
+                "dataType": "float64",
+                "type": "Sum",
+                "isColumn": false
+              },
+              "timeAggregation": "increase",
+              "spaceAggregation": "sum",
+              "filters": {"items": [], "op": "AND"},
+              "expression": "A",
+              "disabled": false,
+              "groupBy": [
+                {
+                  "key": "risk_level",
+                  "dataType": "string",
+                  "type": "tag",
+                  "isColumn": false
+                }
+              ],
+              "reduceTo": "last",
+              "having": []
+            }
+          ],
+          "queryFormulas": []
+        },
+        "clickhouse_sql": []
+      }
+    },
+    {
+      "id": "latency-p50-p95-p99",
+      "title": "Prediction Latency (p50 / p95 / p99)",
+      "description": "End-to-end prediction latency percentiles in milliseconds",
+      "panelTypes": "graph",
+      "yAxisUnit": "ms",
+      "query": {
+        "queryType": "builder",
+        "promql": [],
+        "builder": {
+          "queryData": [
+            {
+              "dataSource": "metrics",
+              "queryName": "A",
+              "aggregateOperator": "p50",
+              "aggregateAttribute": {
+                "key": "predictions.latency_ms",
+                "dataType": "float64",
+                "type": "Histogram",
+                "isColumn": false
+              },
+              "timeAggregation": "p50",
+              "spaceAggregation": "avg",
+              "filters": {"items": [], "op": "AND"},
+              "expression": "A",
+              "disabled": false,
+              "groupBy": [],
+              "reduceTo": "last",
+              "having": []
+            },
+            {
+              "dataSource": "metrics",
+              "queryName": "B",
+              "aggregateOperator": "p95",
+              "aggregateAttribute": {
+                "key": "predictions.latency_ms",
+                "dataType": "float64",
+                "type": "Histogram",
+                "isColumn": false
+              },
+              "timeAggregation": "p95",
+              "spaceAggregation": "avg",
+              "filters": {"items": [], "op": "AND"},
+              "expression": "B",
+              "disabled": false,
+              "groupBy": [],
+              "reduceTo": "last",
+              "having": []
+            },
+            {
+              "dataSource": "metrics",
+              "queryName": "C",
+              "aggregateOperator": "p99",
+              "aggregateAttribute": {
+                "key": "predictions.latency_ms",
+                "dataType": "float64",
+                "type": "Histogram",
+                "isColumn": false
+              },
+              "timeAggregation": "p99",
+              "spaceAggregation": "avg",
+              "filters": {"items": [], "op": "AND"},
+              "expression": "C",
+              "disabled": false,
+              "groupBy": [],
+              "reduceTo": "last",
+              "having": []
+            }
+          ],
+          "queryFormulas": []
+        },
+        "clickhouse_sql": []
+      }
+    },
+    {
+      "id": "probability-distribution",
+      "title": "Predicted Probability Distribution",
+      "description": "Distribution of predicted probabilities (risk scores)",
+      "panelTypes": "graph",
+      "query": {
+        "queryType": "builder",
+        "promql": [],
+        "builder": {
+          "queryData": [
+            {
+              "dataSource": "metrics",
+              "queryName": "A",
+              "aggregateOperator": "avg",
+              "aggregateAttribute": {
+                "key": "predictions.probability",
+                "dataType": "float64",
+                "type": "Histogram",
+                "isColumn": false
+              },
+              "timeAggregation": "avg",
+              "spaceAggregation": "avg",
+              "filters": {"items": [], "op": "AND"},
+              "expression": "A",
+              "disabled": false,
+              "groupBy": [],
+              "reduceTo": "last",
+              "having": []
+            }
+          ],
+          "queryFormulas": []
+        },
+        "clickhouse_sql": []
+      }
+    },
+    {
+      "id": "risk-breakdown",
+      "title": "Risk Level Trend Over Time",
+      "description": "Rate of predictions by risk level over time",
+      "panelTypes": "graph",
+      "query": {
+        "queryType": "builder",
+        "promql": [],
+        "builder": {
+          "queryData": [
+            {
+              "dataSource": "metrics",
+              "queryName": "A",
+              "aggregateOperator": "rate",
+              "aggregateAttribute": {
+                "key": "predictions.risk_level",
+                "dataType": "float64",
+                "type": "Sum",
+                "isColumn": false
+              },
+              "timeAggregation": "rate",
+              "spaceAggregation": "sum",
+              "filters": {"items": [], "op": "AND"},
+              "expression": "A",
+              "disabled": false,
+              "groupBy": [
+                {
+                  "key": "risk_level",
+                  "dataType": "string",
+                  "type": "tag",
+                  "isColumn": false
+                }
+              ],
+              "reduceTo": "last",
+              "having": []
+            }
+          ],
+          "queryFormulas": []
+        },
+        "clickhouse_sql": []
+      }
+    },
+    {
+      "id": "latency-avg",
+      "title": "Avg Latency (ms)",
+      "description": "Average end-to-end prediction latency",
+      "panelTypes": "value",
+      "yAxisUnit": "ms",
+      "query": {
+        "queryType": "builder",
+        "promql": [],
+        "builder": {
+          "queryData": [
+            {
+              "dataSource": "metrics",
+              "queryName": "A",
+              "aggregateOperator": "avg",
+              "aggregateAttribute": {
+                "key": "predictions.latency_ms",
+                "dataType": "float64",
+                "type": "Histogram",
+                "isColumn": false
+              },
+              "timeAggregation": "avg",
+              "spaceAggregation": "avg",
+              "filters": {"items": [], "op": "AND"},
+              "expression": "A",
+              "disabled": false,
+              "groupBy": [],
+              "reduceTo": "last",
+              "having": []
+            }
+          ],
+          "queryFormulas": []
+        },
+        "clickhouse_sql": []
+      }
+    },
+    {
+      "id": "latency-max",
+      "title": "Max Latency (ms)",
+      "description": "Maximum prediction latency observed",
+      "panelTypes": "value",
+      "yAxisUnit": "ms",
+      "query": {
+        "queryType": "builder",
+        "promql": [],
+        "builder": {
+          "queryData": [
+            {
+              "dataSource": "metrics",
+              "queryName": "A",
+              "aggregateOperator": "max",
+              "aggregateAttribute": {
+                "key": "predictions.latency_ms",
+                "dataType": "float64",
+                "type": "Histogram",
+                "isColumn": false
+              },
+              "timeAggregation": "max",
+              "spaceAggregation": "max",
+              "filters": {"items": [], "op": "AND"},
+              "expression": "A",
+              "disabled": false,
+              "groupBy": [],
+              "reduceTo": "last",
+              "having": []
+            }
+          ],
+          "queryFormulas": []
+        },
+        "clickhouse_sql": []
+      }
+    },
+    {
+      "id": "feature-engineering-latency",
+      "title": "Feature Engineering Latency (traces)",
+      "description": "Duration of predict.feature_engineering spans",
+      "panelTypes": "graph",
+      "query": {
+        "queryType": "builder",
+        "promql": [],
+        "builder": {
+          "queryData": [
+            {
+              "dataSource": "traces",
+              "queryName": "A",
+              "aggregateOperator": "p50",
+              "aggregateAttribute": {
+                "key": "durationNano",
+                "dataType": "float64",
+                "type": "tag",
+                "isColumn": true
+              },
+              "timeAggregation": "p50",
+              "spaceAggregation": "avg",
+              "filters": {
+                "items": [
+                  {
+                    "key": {"key": "name", "dataType": "string", "type": "tag", "isColumn": true},
+                    "op": "=",
+                    "value": "predict.feature_engineering"
+                  }
+                ],
+                "op": "AND"
+              },
+              "expression": "A",
+              "disabled": false,
+              "groupBy": [],
+              "reduceTo": "last",
+              "having": []
+            },
+            {
+              "dataSource": "traces",
+              "queryName": "B",
+              "aggregateOperator": "p95",
+              "aggregateAttribute": {
+                "key": "durationNano",
+                "dataType": "float64",
+                "type": "tag",
+                "isColumn": true
+              },
+              "timeAggregation": "p95",
+              "spaceAggregation": "avg",
+              "filters": {
+                "items": [
+                  {
+                    "key": {"key": "name", "dataType": "string", "type": "tag", "isColumn": true},
+                    "op": "=",
+                    "value": "predict.feature_engineering"
+                  }
+                ],
+                "op": "AND"
+              },
+              "expression": "B",
+              "disabled": false,
+              "groupBy": [],
+              "reduceTo": "last",
+              "having": []
+            }
+          ],
+          "queryFormulas": []
+        },
+        "clickhouse_sql": []
+      }
+    },
+    {
+      "id": "model-inference-latency",
+      "title": "Model Inference Latency (traces)",
+      "description": "Duration of predict.model_inference spans",
+      "panelTypes": "graph",
+      "query": {
+        "queryType": "builder",
+        "promql": [],
+        "builder": {
+          "queryData": [
+            {
+              "dataSource": "traces",
+              "queryName": "A",
+              "aggregateOperator": "p50",
+              "aggregateAttribute": {
+                "key": "durationNano",
+                "dataType": "float64",
+                "type": "tag",
+                "isColumn": true
+              },
+              "timeAggregation": "p50",
+              "spaceAggregation": "avg",
+              "filters": {
+                "items": [
+                  {
+                    "key": {"key": "name", "dataType": "string", "type": "tag", "isColumn": true},
+                    "op": "=",
+                    "value": "predict.model_inference"
+                  }
+                ],
+                "op": "AND"
+              },
+              "expression": "A",
+              "disabled": false,
+              "groupBy": [],
+              "reduceTo": "last",
+              "having": []
+            },
+            {
+              "dataSource": "traces",
+              "queryName": "B",
+              "aggregateOperator": "p95",
+              "aggregateAttribute": {
+                "key": "durationNano",
+                "dataType": "float64",
+                "type": "tag",
+                "isColumn": true
+              },
+              "timeAggregation": "p95",
+              "spaceAggregation": "avg",
+              "filters": {
+                "items": [
+                  {
+                    "key": {"key": "name", "dataType": "string", "type": "tag", "isColumn": true},
+                    "op": "=",
+                    "value": "predict.model_inference"
+                  }
+                ],
+                "op": "AND"
+              },
+              "expression": "B",
+              "disabled": false,
+              "groupBy": [],
+              "reduceTo": "last",
+              "having": []
+            }
+          ],
+          "queryFormulas": []
+        },
+        "clickhouse_sql": []
+      }
+    }
+  ],
+  "variables": {}
+}

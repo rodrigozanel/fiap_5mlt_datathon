@@ -1,0 +1,435 @@
+{
+  "title": "Passos Magicos - API Health & Security",
+  "description": "Monitoring dashboard for API health, authentication, model loading, and HTTP performance",
+  "tags": ["api", "security", "health", "passos-magicos"],
+  "layout": [
+    {"i": "login-rate", "w": 6, "h": 6, "x": 0, "y": 0},
+    {"i": "login-total", "w": 3, "h": 6, "x": 6, "y": 0},
+    {"i": "login-failures", "w": 3, "h": 6, "x": 9, "y": 0},
+    {"i": "model-load-time", "w": 6, "h": 6, "x": 0, "y": 6},
+    {"i": "http-request-rate", "w": 6, "h": 6, "x": 6, "y": 6},
+    {"i": "http-error-rate", "w": 6, "h": 6, "x": 0, "y": 12},
+    {"i": "http-latency-by-endpoint", "w": 6, "h": 6, "x": 6, "y": 12},
+    {"i": "auth-login-traces", "w": 6, "h": 6, "x": 0, "y": 18},
+    {"i": "error-traces", "w": 6, "h": 6, "x": 6, "y": 18}
+  ],
+  "widgets": [
+    {
+      "id": "login-rate",
+      "title": "Login Attempts Over Time",
+      "description": "Rate of authentication attempts (success vs failure)",
+      "panelTypes": "graph",
+      "query": {
+        "queryType": "builder",
+        "promql": [],
+        "builder": {
+          "queryData": [
+            {
+              "dataSource": "metrics",
+              "queryName": "A",
+              "aggregateOperator": "rate",
+              "aggregateAttribute": {
+                "key": "auth.login.total",
+                "dataType": "float64",
+                "type": "Sum",
+                "isColumn": false
+              },
+              "timeAggregation": "rate",
+              "spaceAggregation": "sum",
+              "filters": {"items": [], "op": "AND"},
+              "expression": "A",
+              "disabled": false,
+              "groupBy": [
+                {
+                  "key": "success",
+                  "dataType": "string",
+                  "type": "tag",
+                  "isColumn": false
+                }
+              ],
+              "reduceTo": "last",
+              "having": []
+            }
+          ],
+          "queryFormulas": []
+        },
+        "clickhouse_sql": []
+      }
+    },
+    {
+      "id": "login-total",
+      "title": "Total Logins",
+      "description": "Cumulative login attempts",
+      "panelTypes": "value",
+      "query": {
+        "queryType": "builder",
+        "promql": [],
+        "builder": {
+          "queryData": [
+            {
+              "dataSource": "metrics",
+              "queryName": "A",
+              "aggregateOperator": "sum",
+              "aggregateAttribute": {
+                "key": "auth.login.total",
+                "dataType": "float64",
+                "type": "Sum",
+                "isColumn": false
+              },
+              "timeAggregation": "increase",
+              "spaceAggregation": "sum",
+              "filters": {"items": [], "op": "AND"},
+              "expression": "A",
+              "disabled": false,
+              "groupBy": [],
+              "reduceTo": "last",
+              "having": []
+            }
+          ],
+          "queryFormulas": []
+        },
+        "clickhouse_sql": []
+      }
+    },
+    {
+      "id": "login-failures",
+      "title": "Failed Logins",
+      "description": "Total failed authentication attempts (possible brute force indicator)",
+      "panelTypes": "value",
+      "query": {
+        "queryType": "builder",
+        "promql": [],
+        "builder": {
+          "queryData": [
+            {
+              "dataSource": "metrics",
+              "queryName": "A",
+              "aggregateOperator": "sum",
+              "aggregateAttribute": {
+                "key": "auth.login.failures",
+                "dataType": "float64",
+                "type": "Sum",
+                "isColumn": false
+              },
+              "timeAggregation": "increase",
+              "spaceAggregation": "sum",
+              "filters": {"items": [], "op": "AND"},
+              "expression": "A",
+              "disabled": false,
+              "groupBy": [],
+              "reduceTo": "last",
+              "having": []
+            }
+          ],
+          "queryFormulas": []
+        },
+        "clickhouse_sql": []
+      }
+    },
+    {
+      "id": "model-load-time",
+      "title": "Model Load Time (ms)",
+      "description": "Time to load the ML model from disk on startup",
+      "panelTypes": "graph",
+      "yAxisUnit": "ms",
+      "query": {
+        "queryType": "builder",
+        "promql": [],
+        "builder": {
+          "queryData": [
+            {
+              "dataSource": "metrics",
+              "queryName": "A",
+              "aggregateOperator": "avg",
+              "aggregateAttribute": {
+                "key": "model.load_time_ms",
+                "dataType": "float64",
+                "type": "Histogram",
+                "isColumn": false
+              },
+              "timeAggregation": "avg",
+              "spaceAggregation": "avg",
+              "filters": {"items": [], "op": "AND"},
+              "expression": "A",
+              "disabled": false,
+              "groupBy": [],
+              "reduceTo": "last",
+              "having": []
+            }
+          ],
+          "queryFormulas": []
+        },
+        "clickhouse_sql": []
+      }
+    },
+    {
+      "id": "http-request-rate",
+      "title": "HTTP Request Rate by Route",
+      "description": "Request throughput per API endpoint (auto-instrumented)",
+      "panelTypes": "graph",
+      "query": {
+        "queryType": "builder",
+        "promql": [],
+        "builder": {
+          "queryData": [
+            {
+              "dataSource": "traces",
+              "queryName": "A",
+              "aggregateOperator": "rate",
+              "aggregateAttribute": {
+                "key": "durationNano",
+                "dataType": "float64",
+                "type": "tag",
+                "isColumn": true
+              },
+              "timeAggregation": "rate",
+              "spaceAggregation": "sum",
+              "filters": {
+                "items": [
+                  {
+                    "key": {"key": "serviceName", "dataType": "string", "type": "tag", "isColumn": true},
+                    "op": "=",
+                    "value": "passos-magicos-ml"
+                  },
+                  {
+                    "key": {"key": "kind", "dataType": "int64", "type": "tag", "isColumn": true},
+                    "op": "=",
+                    "value": 2
+                  }
+                ],
+                "op": "AND"
+              },
+              "expression": "A",
+              "disabled": false,
+              "groupBy": [
+                {
+                  "key": "httpRoute",
+                  "dataType": "string",
+                  "type": "tag",
+                  "isColumn": true
+                }
+              ],
+              "reduceTo": "last",
+              "having": []
+            }
+          ],
+          "queryFormulas": []
+        },
+        "clickhouse_sql": []
+      }
+    },
+    {
+      "id": "http-error-rate",
+      "title": "HTTP Errors (4xx/5xx) Over Time",
+      "description": "Error responses from the API",
+      "panelTypes": "graph",
+      "query": {
+        "queryType": "builder",
+        "promql": [],
+        "builder": {
+          "queryData": [
+            {
+              "dataSource": "traces",
+              "queryName": "A",
+              "aggregateOperator": "count",
+              "aggregateAttribute": {
+                "key": "durationNano",
+                "dataType": "float64",
+                "type": "tag",
+                "isColumn": true
+              },
+              "timeAggregation": "rate",
+              "spaceAggregation": "sum",
+              "filters": {
+                "items": [
+                  {
+                    "key": {"key": "serviceName", "dataType": "string", "type": "tag", "isColumn": true},
+                    "op": "=",
+                    "value": "passos-magicos-ml"
+                  },
+                  {
+                    "key": {"key": "hasError", "dataType": "bool", "type": "tag", "isColumn": true},
+                    "op": "=",
+                    "value": true
+                  }
+                ],
+                "op": "AND"
+              },
+              "expression": "A",
+              "disabled": false,
+              "groupBy": [
+                {
+                  "key": "httpRoute",
+                  "dataType": "string",
+                  "type": "tag",
+                  "isColumn": true
+                }
+              ],
+              "reduceTo": "last",
+              "having": []
+            }
+          ],
+          "queryFormulas": []
+        },
+        "clickhouse_sql": []
+      }
+    },
+    {
+      "id": "http-latency-by-endpoint",
+      "title": "HTTP Latency by Endpoint (p95)",
+      "description": "95th percentile latency per API route",
+      "panelTypes": "graph",
+      "query": {
+        "queryType": "builder",
+        "promql": [],
+        "builder": {
+          "queryData": [
+            {
+              "dataSource": "traces",
+              "queryName": "A",
+              "aggregateOperator": "p95",
+              "aggregateAttribute": {
+                "key": "durationNano",
+                "dataType": "float64",
+                "type": "tag",
+                "isColumn": true
+              },
+              "timeAggregation": "p95",
+              "spaceAggregation": "avg",
+              "filters": {
+                "items": [
+                  {
+                    "key": {"key": "serviceName", "dataType": "string", "type": "tag", "isColumn": true},
+                    "op": "=",
+                    "value": "passos-magicos-ml"
+                  },
+                  {
+                    "key": {"key": "kind", "dataType": "int64", "type": "tag", "isColumn": true},
+                    "op": "=",
+                    "value": 2
+                  }
+                ],
+                "op": "AND"
+              },
+              "expression": "A",
+              "disabled": false,
+              "groupBy": [
+                {
+                  "key": "httpRoute",
+                  "dataType": "string",
+                  "type": "tag",
+                  "isColumn": true
+                }
+              ],
+              "reduceTo": "last",
+              "having": []
+            }
+          ],
+          "queryFormulas": []
+        },
+        "clickhouse_sql": []
+      }
+    },
+    {
+      "id": "auth-login-traces",
+      "title": "Auth Login Span Duration",
+      "description": "Duration of auth.login spans (authentication processing time)",
+      "panelTypes": "graph",
+      "query": {
+        "queryType": "builder",
+        "promql": [],
+        "builder": {
+          "queryData": [
+            {
+              "dataSource": "traces",
+              "queryName": "A",
+              "aggregateOperator": "avg",
+              "aggregateAttribute": {
+                "key": "durationNano",
+                "dataType": "float64",
+                "type": "tag",
+                "isColumn": true
+              },
+              "timeAggregation": "avg",
+              "spaceAggregation": "avg",
+              "filters": {
+                "items": [
+                  {
+                    "key": {"key": "name", "dataType": "string", "type": "tag", "isColumn": true},
+                    "op": "=",
+                    "value": "auth.login"
+                  }
+                ],
+                "op": "AND"
+              },
+              "expression": "A",
+              "disabled": false,
+              "groupBy": [],
+              "reduceTo": "last",
+              "having": []
+            }
+          ],
+          "queryFormulas": []
+        },
+        "clickhouse_sql": []
+      }
+    },
+    {
+      "id": "error-traces",
+      "title": "Error Traces Count",
+      "description": "Number of traces with errors over time",
+      "panelTypes": "graph",
+      "query": {
+        "queryType": "builder",
+        "promql": [],
+        "builder": {
+          "queryData": [
+            {
+              "dataSource": "traces",
+              "queryName": "A",
+              "aggregateOperator": "count",
+              "aggregateAttribute": {
+                "key": "durationNano",
+                "dataType": "float64",
+                "type": "tag",
+                "isColumn": true
+              },
+              "timeAggregation": "rate",
+              "spaceAggregation": "sum",
+              "filters": {
+                "items": [
+                  {
+                    "key": {"key": "serviceName", "dataType": "string", "type": "tag", "isColumn": true},
+                    "op": "=",
+                    "value": "passos-magicos-ml"
+                  },
+                  {
+                    "key": {"key": "hasError", "dataType": "bool", "type": "tag", "isColumn": true},
+                    "op": "=",
+                    "value": true
+                  }
+                ],
+                "op": "AND"
+              },
+              "expression": "A",
+              "disabled": false,
+              "groupBy": [
+                {
+                  "key": "name",
+                  "dataType": "string",
+                  "type": "tag",
+                  "isColumn": true
+                }
+              ],
+              "reduceTo": "last",
+              "having": []
+            }
+          ],
+          "queryFormulas": []
+        },
+        "clickhouse_sql": []
+      }
+    }
+  ],
+  "variables": {}
+}
