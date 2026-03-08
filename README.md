@@ -118,7 +118,7 @@ Este comando sobe um container temporario que:
 5. **Aplica feature engineering:** media_notas, nota_min, anos_na_pm, pedra_encoded, indicadores_baixos, etc.
 6. **Trata dados faltantes:** mediana para numericos, "desconhecido" para categoricos
 7. **Divide** em treino/teste (estratificado 80/20)
-8. **Treina 3 modelos:** LightGBM, Random Forest, Logistic Regression
+8. **Treina 4 modelos:** LightGBM, XGBoost, Random Forest, Logistic Regression
 9. **Compara** os modelos por F1-Score (weighted) e seleciona o melhor
 10. **Salva** o modelo vencedor em `app/model/model.joblib`
 
@@ -445,7 +445,7 @@ INDE, IAA, IEG, IPS, IDA, IPP, IPV, IAN, notas (Mat/Por/Ing), idade, ponto_virad
 
 ### 3. Treinamento (`src/train.py`)
 
-- **Modelos candidatos:** LightGBM, Random Forest, Logistic Regression
+- **Modelos candidatos:** LightGBM, XGBoost, Random Forest, Logistic Regression
 - **Pipeline:** StandardScaler + SimpleImputer + Classificador
 - **Validacao:** StratifiedKFold (5 folds)
 - **Tuning:** GridSearchCV no melhor modelo
@@ -466,3 +466,54 @@ Metricas reportadas:
 - **Logs de predicao:** Cada request ao `/api/v1/predict` gera log JSON em `logs/predictions.log`
 - **Dashboard de drift:** Streamlit em `http://localhost:8501` mostra distribuicao de features, probabilidades e latencia
 - **Observabilidade:** OpenTelemetry + SigNoz para traces distribuidos, metricas de sistema e logs centralizados
+
+---
+
+## Avaliacao de Resultados
+
+### Comparacao entre Modelos
+
+Foram treinados e avaliados 4 modelos de classificacao para identificar alunos em risco de defasagem escolar. A tabela abaixo apresenta o desempenho de cada modelo no conjunto de teste:
+
+| Modelo | F1 (weighted) | F1 (macro) | Accuracy | Precision (weighted) | Recall (weighted) | AUC-ROC |
+|--------|--------------|------------|----------|---------------------|-------------------|---------|
+| **LightGBM** | **0.9702** | **0.8657** | **0.9719** | **0.9702** | **0.9719** | **0.9590** |
+| XGBoost | 0.9642 | 0.8429 | 0.9653 | 0.9635 | 0.9653 | 0.9567 |
+| Random Forest | 0.9569 | 0.7951 | 0.9620 | 0.9590 | 0.9620 | 0.9383 |
+| Logistic Regression | 0.9278 | 0.6476 | 0.9389 | 0.9243 | 0.9389 | 0.9300 |
+
+O **LightGBM** foi selecionado como modelo final por apresentar o melhor desempenho em todas as metricas avaliadas.
+
+### Analise Detalhada do Modelo Selecionado (LightGBM)
+
+O classification report do LightGBM no conjunto de teste revela um aspecto importante do problema:
+
+| Classe | Precision | Recall | F1-Score | Amostras |
+|--------|-----------|--------|----------|----------|
+| Sem Defasagem | 0.98 | 0.99 | 0.99 | 568 (93.7%) |
+| Com Defasagem | 0.86 | 0.66 | 0.75 | 38 (6.3%) |
+
+### Desbalanceamento de Classes
+
+O dataset apresenta um desbalanceamento significativo: apenas **6.3% dos alunos** no conjunto de teste possuem defasagem escolar. Isso tem implicacoes diretas na interpretacao dos resultados:
+
+- **Metricas weighted e accuracy (0.97)** sao infladas pela classe majoritaria ("Sem Defasagem"), que representa 93.7% dos dados. O modelo acerta quase todos esses casos, o que eleva as metricas gerais.
+- **F1 macro (0.87)** oferece uma visao mais equilibrada, pois calcula a media simples entre as duas classes sem ponderar pelo numero de amostras.
+- **AUC-ROC (0.96)** indica que o modelo possui boa capacidade de discriminacao entre as classes em diferentes thresholds de decisao.
+
+### Performance na Classe de Interesse
+
+Para o contexto educacional deste projeto, a classe mais importante e a de **alunos com defasagem** — sao esses os casos que exigem intervencao pedagogica. Nessa classe:
+
+- **Precision (0.86):** quando o modelo indica que um aluno esta em risco, ele acerta em 86% dos casos. A taxa de falsos alarmes e baixa.
+- **Recall (0.66):** o modelo identifica corretamente 66% dos alunos com defasagem. Isso significa que **aproximadamente 1 em cada 3 alunos com defasagem nao e detectado** pelo modelo.
+- **F1-Score (0.75):** a media harmonica entre precision e recall reflete esse trade-off.
+
+### Consideracoes e Melhorias Futuras
+
+O modelo atual apresenta um bom desempenho geral e ja oferece valor pratico como ferramenta de triagem para a equipe pedagogica. No entanto, o recall de 66% na classe minoritaria indica espaco para evolucao. Estrategias que podem ser exploradas em iteracoes futuras:
+
+- **Tecnicas de balanceamento:** aplicar SMOTE (oversampling sintetico) ou undersampling da classe majoritaria durante o treinamento
+- **Ajuste de threshold:** reduzir o limiar de classificacao (atualmente 0.5) para aumentar o recall, aceitando uma reducao controlada na precision
+- **Class weights:** utilizar pesos diferenciados para as classes no treinamento, penalizando mais os erros na classe minoritaria
+- **Otimizacao por metrica alternativa:** treinar otimizando F1 macro ou recall da classe minoritaria em vez de F1 weighted
