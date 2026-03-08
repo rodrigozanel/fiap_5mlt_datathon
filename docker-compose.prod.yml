@@ -39,8 +39,6 @@ services:
         condition: service_healthy
       mlflow:
         condition: service_healthy
-      signoz:
-        condition: service_healthy
     networks:
       - app-network
     restart: unless-stopped
@@ -235,6 +233,8 @@ services:
     restart: unless-stopped
     logging: *default-logging
     command: [--config=/root/config/prometheus.yml]
+    ports:
+      - "8080:8080"
     volumes:
       - ./signoz/prometheus.yml:/root/config/prometheus.yml
       - ./signoz/dashboards:/root/config/dashboards

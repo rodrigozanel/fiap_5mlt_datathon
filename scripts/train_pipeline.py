@@ -62,30 +62,49 @@ def main() -> None:
 
     # ── 1. Load data ────────────────────────────────────────────────
     if USE_FEATURE_STORE:
-        print("Loading features from Feast Feature Store...")
+        print("[Feature Store] USE_FEATURE_STORE=true — loading from Feast")
         from feast import FeatureStore
         from sklearn.model_selection import train_test_split
 
-        FeatureStore(repo_path=str(FEATURE_STORE_DIR))  # validate config
+        print(f"[Feature Store] Repo path: {FEATURE_STORE_DIR}")
+        store = FeatureStore(repo_path=str(FEATURE_STORE_DIR))
+        print(f"[Feature Store] Provider: {store.config.provider}")
+        print(f"[Feature Store] Online store: {store.config.online_store}")
+
         parquet_path = FEATURE_STORE_DIR / "data" / "student_features.parquet"
+        if not parquet_path.exists():
+            print(f"[Feature Store] ERROR: Parquet file not found at {parquet_path}")
+            print("[Feature Store] Run materialization first:")
+            print("  docker compose --profile feast run --rm materialize")
+            raise SystemExit(1)
+
+        print(f"[Feature Store] Loading parquet: {parquet_path}")
         df = pd.read_parquet(parquet_path)
+        print(f"[Feature Store] Loaded {len(df)} rows, {df.shape[1]} columns")
+        print(f"[Feature Store] Columns: {', '.join(df.columns.tolist())}")
 
         # Drop Feast metadata columns
         drop = ["student_id", "event_timestamp"]
-        df = df.drop(columns=[c for c in drop if c in df.columns])
+        dropped = [c for c in drop if c in df.columns]
+        if dropped:
+            print(f"[Feature Store] Dropping metadata columns: {', '.join(dropped)}")
+        df = df.drop(columns=dropped)
 
         y = df.pop("target")
         X = df
+        print(f"[Feature Store] Features: {X.shape[1]}, Target distribution: {dict(y.value_counts())}")
 
         if SPLIT_STRATEGY == "temporal":
             train_mask = X["ano"].isin([2022, 2023])
             X_train, X_test = X[train_mask], X[~train_mask]
             y_train, y_test = y[train_mask], y[~train_mask]
+            print(f"[Feature Store] Temporal split: train=2022-2023 ({len(X_train)}), test=2024 ({len(X_test)})")
         else:
             X_train, X_test, y_train, y_test = train_test_split(
                 X, y, test_size=0.2, stratify=y, random_state=42
             )
-        print(f"  Source: Feature Store ({parquet_path})")
+            print(f"[Feature Store] Stratified split: train={len(X_train)}, test={len(X_test)}")
+        print(f"[Feature Store] Data loaded successfully\n")
     else:
         xlsx_path = DATA_DIR / "raw" / DATA_FILE
         if not xlsx_path.exists():
