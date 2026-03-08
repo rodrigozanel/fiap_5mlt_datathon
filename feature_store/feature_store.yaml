@@ -1,0 +1,9 @@
+project: passos_magicos
+provider: local
+registry: /app/feature_store/data/registry.db
+online_store:
+  type: sqlite
+  path: /app/feature_store/data/online_store.db
+offline_store:
+  type: file
+entity_key_serialization_version: 3
