@@ -67,6 +67,14 @@ poetry.lock
 # SigNoz data (volumes)
 signoz/clickhouse/user_scripts/histogramQuantile
 
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+*.tfvars
+!*.tfvars.example
+
 # Misc
 *.bak
 *.tmp

@@ -735,3 +735,61 @@ O modelo atual apresenta um bom desempenho geral e ja oferece valor pratico como
 - **Ajuste de threshold:** reduzir o limiar de classificacao (atualmente 0.5) para aumentar o recall, aceitando uma reducao controlada na precision
 - **Class weights:** utilizar pesos diferenciados para as classes no treinamento, penalizando mais os erros na classe minoritaria
 - **Otimizacao por metrica alternativa:** treinar otimizando F1 macro ou recall da classe minoritaria em vez de F1 weighted
+
+---
+
+## Infraestrutura como Codigo (IaC)
+
+O projeto inclui configuracao Terraform para deploy automatico em um Droplet DigitalOcean.
+
+### Pre-requisitos
+
+- [Terraform](https://www.terraform.io/downloads) >= 1.5
+- Conta DigitalOcean com [API token](https://cloud.digitalocean.com/account/api/tokens)
+- Chave SSH registrada no DigitalOcean
+
+### Deploy Manual via Terraform
+
+```bash
+cd infra/terraform
+
+# Copiar e preencher variaveis
+cp terraform.tfvars.example terraform.tfvars
+# Editar terraform.tfvars com seus valores
+
+# Inicializar, planejar e aplicar
+terraform init
+terraform plan
+terraform apply
+```
+
+Apos o apply, o Terraform exibe:
+- `droplet_ip` — IP publico do servidor
+- `app_url` — URL de acesso (dominio ou IP)
+- `ssh_command` — comando SSH para conectar
+
+### Deploy Automatizado via GitHub Actions
+
+O workflow `CD: Deploy to DigitalOcean` (`.github/workflows/cd-deploy.yml`) executa o Terraform automaticamente.
+
+**Secrets necessarios no repositorio GitHub:**
+
+| Secret | Descricao |
+|--------|-----------|
+| `DO_TOKEN` | API token DigitalOcean |
+| `DO_SSH_KEY_FINGERPRINT` | Fingerprint da chave SSH |
+| `JWT_SECRET_KEY` | Chave de assinatura JWT |
+| `API_USERNAME` | Usuario da API |
+| `API_PASSWORD` | Senha da API |
+
+**Para executar:** Actions -> CD: Deploy to DigitalOcean -> Run workflow
+
+O workflow tambem suporta destruir a infraestrutura selecionando `destroy: true`.
+
+### O que o deploy cria
+
+1. **Droplet** Ubuntu 20.04 com Docker (4 vCPU, 8 GB RAM)
+2. **Firewall** — portas 22 (SSH), 80 (HTTP), 443 (HTTPS)
+3. **DNS** (opcional) — registro A apontando para o IP do droplet
+4. **Cloud-init** automatiza: clone do repo, criacao do `.env`, build e start do docker-compose.prod.yml
+5. **Systemd service** para auto-start apos reboot

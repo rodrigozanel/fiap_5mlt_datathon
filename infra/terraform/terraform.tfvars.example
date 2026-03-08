@@ -1,0 +1,20 @@
+# DigitalOcean API token (generate at https://cloud.digitalocean.com/account/api/tokens)
+do_token = "dop_v1_..."
+
+# SSH key fingerprint (already registered in DigitalOcean)
+# Find with: doctl compute ssh-key list
+ssh_key_fingerprint = "aa:bb:cc:dd:..."
+
+# Region (default: nyc1)
+# region = "nyc1"
+
+# Droplet size (default: s-4vcpu-8gb — minimum for full stack)
+# droplet_size = "s-4vcpu-8gb"
+
+# Optional domain name (leave empty to use droplet IP)
+# domain = "example.com"
+
+# Application secrets
+jwt_secret_key = "change-me-to-a-strong-random-secret"
+api_username   = "admin"
+api_password   = "change-me-to-a-strong-password"

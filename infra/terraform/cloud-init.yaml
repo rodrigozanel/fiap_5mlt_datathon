@@ -1,0 +1,52 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+
+packages:
+  - curl
+  - git
+  - docker-compose-plugin
+
+runcmd:
+  # ── Clone repository ──────────────────────────────────────────────────
+  - git clone --branch ${repo_branch} ${repo_url} /opt/app
+  - cd /opt/app
+
+  # ── Create .env for docker-compose ─────────────────────────────────────
+  - |
+    cat > /opt/app/.env <<ENVFILE
+    JWT_SECRET_KEY=${jwt_secret_key}
+    API_USERNAME=${api_username}
+    API_PASSWORD=${api_password}
+    USE_FEATURE_STORE=false
+    ENVFILE
+
+  # ── Create data directories ───────────────────────────────────────────
+  - mkdir -p /opt/app/data/raw
+  - mkdir -p /opt/app/logs
+  - mkdir -p /opt/app/app/model
+  - mkdir -p /opt/app/feature_store
+
+  # ── Build and start with production compose ────────────────────────────
+  - cd /opt/app && docker compose -f docker-compose.prod.yml up -d --build
+
+  # ── Enable auto-start on reboot ────────────────────────────────────────
+  - |
+    cat > /etc/systemd/system/passos-magicos.service <<'UNIT'
+    [Unit]
+    Description=Passos Magicos ML Platform
+    After=docker.service
+    Requires=docker.service
+
+    [Service]
+    Type=oneshot
+    RemainAfterExit=yes
+    WorkingDirectory=/opt/app
+    ExecStart=/usr/bin/docker compose -f docker-compose.prod.yml up -d
+    ExecStop=/usr/bin/docker compose -f docker-compose.prod.yml down
+
+    [Install]
+    WantedBy=multi-user.target
+    UNIT
+  - systemctl daemon-reload
+  - systemctl enable passos-magicos.service
