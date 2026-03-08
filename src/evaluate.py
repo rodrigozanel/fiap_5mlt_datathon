@@ -86,8 +86,10 @@ def compare_models(
         metrics = evaluate_model(model, X_test, y_test)
         metrics["model"] = name
         results.append(metrics)
-    return pd.DataFrame(results).set_index("model").sort_values(
-        "f1_weighted", ascending=False
+    return (
+        pd.DataFrame(results)
+        .set_index("model")
+        .sort_values("f1_weighted", ascending=False)
     )
 
 

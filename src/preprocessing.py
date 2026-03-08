@@ -1,7 +1,6 @@
 """Data loading, standardization, and preprocessing pipeline."""
 
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -158,10 +157,6 @@ def _normalise_boolean(series: pd.Series) -> pd.Series:
         "NÃO": 0,
         True: 1,
         False: 0,
-        1: 1,
-        0: 0,
-        1.0: 1,
-        0.0: 0,
     }
     return series.map(mapping).astype("Int64")  # nullable int
 
@@ -179,6 +174,7 @@ def _normalise_gender(series: pd.Series) -> pd.Series:
 
 def _extract_fase_num(series: pd.Series) -> pd.Series:
     """Extract numeric phase from Fase column (e.g. '7' -> 7, 'ALFA' -> 0)."""
+
     def _parse(val):
         if pd.isna(val):
             return np.nan
@@ -300,9 +296,7 @@ def build_preprocessing_pipeline() -> ColumnTransformer:
             ("imputer", SimpleImputer(strategy="most_frequent")),
             (
                 "encoder",
-                OrdinalEncoder(
-                    handle_unknown="use_encoded_value", unknown_value=-1
-                ),
+                OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1),
             ),
         ]
     )
@@ -376,7 +370,5 @@ def prepare_dataset(
     combined = engineer_features(combined)
     combined = handle_missing(combined)
 
-    X_train, X_test, y_train, y_test = split_data(
-        combined, strategy=strategy
-    )
+    X_train, X_test, y_train, y_test = split_data(combined, strategy=strategy)
     return X_train, X_test, y_train, y_test

@@ -83,7 +83,11 @@ st.divider()
 # --- Feature distributions ---
 st.subheader("Distribuicao de Features (Dados de Producao)")
 
-numeric_input_cols = [c for c in df.columns if c.startswith("input_") and df[c].dtype in ("float64", "int64")]
+numeric_input_cols = [
+    c
+    for c in df.columns
+    if c.startswith("input_") and df[c].dtype in ("float64", "int64")
+]
 
 if numeric_input_cols:
     selected_feature = st.selectbox("Feature", numeric_input_cols)

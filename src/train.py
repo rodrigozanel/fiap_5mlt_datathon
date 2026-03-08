@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Any
 
 import joblib
-import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
@@ -22,13 +21,9 @@ def _get_model(model_type: str) -> Any:
     if model_type == "lgbm":
         import lightgbm as lgb
 
-        return lgb.LGBMClassifier(
-            n_estimators=200, verbose=-1, random_state=42
-        )
+        return lgb.LGBMClassifier(n_estimators=200, verbose=-1, random_state=42)
     elif model_type == "rf":
-        return RandomForestClassifier(
-            n_estimators=200, random_state=42, n_jobs=-1
-        )
+        return RandomForestClassifier(n_estimators=200, random_state=42, n_jobs=-1)
     elif model_type == "xgb":
         from xgboost import XGBClassifier
 
@@ -40,9 +35,7 @@ def _get_model(model_type: str) -> Any:
             n_jobs=-1,
         )
     elif model_type == "lr":
-        return LogisticRegression(
-            max_iter=1000, random_state=42, solver="lbfgs"
-        )
+        return LogisticRegression(max_iter=1000, random_state=42, solver="lbfgs")
     else:
         raise ValueError(f"Unknown model type: {model_type}")
 

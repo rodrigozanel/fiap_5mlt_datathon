@@ -66,7 +66,7 @@ def main() -> None:
         from feast import FeatureStore
         from sklearn.model_selection import train_test_split
 
-        store = FeatureStore(repo_path=str(FEATURE_STORE_DIR))
+        FeatureStore(repo_path=str(FEATURE_STORE_DIR))  # validate config
         parquet_path = FEATURE_STORE_DIR / "data" / "student_features.parquet"
         df = pd.read_parquet(parquet_path)
 
@@ -136,29 +136,31 @@ def main() -> None:
 
         with mlflow.start_run(run_name=model_name):
             # Dataset info
-            mlflow.log_params({
-                "model_type": model_name,
-                "split_strategy": SPLIT_STRATEGY,
-                "train_samples": len(X_train),
-                "test_samples": len(X_test),
-                "n_features": X_train.shape[1],
-                "features": ", ".join(X_train.columns.tolist()),
-            })
+            mlflow.log_params(
+                {
+                    "model_type": model_name,
+                    "split_strategy": SPLIT_STRATEGY,
+                    "train_samples": len(X_train),
+                    "test_samples": len(X_test),
+                    "n_features": X_train.shape[1],
+                    "features": ", ".join(X_train.columns.tolist()),
+                }
+            )
 
             # Model hyperparameters
             model_params = _get_model_params(pipeline)
-            mlflow.log_params({
-                f"hp_{k}": v for k, v in model_params.items()
-            })
+            mlflow.log_params({f"hp_{k}": v for k, v in model_params.items()})
 
             # Metrics
             mlflow.log_metrics(metrics)
-            mlflow.log_metrics({
-                "confusion_tn": int(cm[0][0]),
-                "confusion_fp": int(cm[0][1]),
-                "confusion_fn": int(cm[1][0]),
-                "confusion_tp": int(cm[1][1]),
-            })
+            mlflow.log_metrics(
+                {
+                    "confusion_tn": int(cm[0][0]),
+                    "confusion_fp": int(cm[0][1]),
+                    "confusion_fn": int(cm[1][0]),
+                    "confusion_tp": int(cm[1][1]),
+                }
+            )
 
             # Tags
             mlflow.set_tag("is_best", str(is_best))

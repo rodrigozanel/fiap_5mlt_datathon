@@ -2,11 +2,8 @@
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from src.preprocessing import (
-    KEEP_COLUMNS,
-    SHEET_CONFIG,
     _extract_fase_num,
     _normalise_boolean,
     _normalise_gender,

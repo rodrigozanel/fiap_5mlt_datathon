@@ -116,13 +116,9 @@ def select_features(
     if method == "importance":
         import lightgbm as lgb
 
-        model = lgb.LGBMClassifier(
-            n_estimators=100, verbose=-1, random_state=42
-        )
+        model = lgb.LGBMClassifier(n_estimators=100, verbose=-1, random_state=42)
         model.fit(X, y)
-        importances = pd.Series(
-            model.feature_importances_, index=X.columns
-        )
+        importances = pd.Series(model.feature_importances_, index=X.columns)
         selected = importances[importances >= threshold * importances.sum()]
         return sorted(selected.index.tolist())
     else:

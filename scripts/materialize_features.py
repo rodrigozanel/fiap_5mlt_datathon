@@ -52,20 +52,36 @@ def main():
         combined["student_id"] = [f"student_{i}" for i in range(len(combined))]
 
     # Feast requires an event_timestamp
-    combined["event_timestamp"] = pd.Timestamp(
-        datetime.now(timezone.utc)
-    )
+    combined["event_timestamp"] = pd.Timestamp(datetime.now(timezone.utc))
 
     # Keep only feature columns + entity + timestamp + target
     feature_cols = [
-        "student_id", "event_timestamp",
+        "student_id",
+        "event_timestamp",
         # Raw indicators
-        "inde", "iaa", "ieg", "ips", "ida", "ipp", "ipv", "ian",
-        "nota_mat", "nota_por", "nota_ing", "idade",
-        "ponto_virada", "indicado_bolsa", "ano",
+        "inde",
+        "iaa",
+        "ieg",
+        "ips",
+        "ida",
+        "ipp",
+        "ipv",
+        "ian",
+        "nota_mat",
+        "nota_por",
+        "nota_ing",
+        "idade",
+        "ponto_virada",
+        "indicado_bolsa",
+        "ano",
         # Engineered
-        "media_notas", "nota_min", "anos_na_pm", "fase_num",
-        "pedra_encoded", "genero_encoded", "indicadores_baixos",
+        "media_notas",
+        "nota_min",
+        "anos_na_pm",
+        "fase_num",
+        "pedra_encoded",
+        "genero_encoded",
+        "indicadores_baixos",
         # Target (for training reads)
         "target",
     ]
@@ -74,8 +90,13 @@ def main():
 
     # Ensure correct types
     int_cols = [
-        "ponto_virada", "indicado_bolsa", "ano",
-        "pedra_encoded", "genero_encoded", "indicadores_baixos", "target",
+        "ponto_virada",
+        "indicado_bolsa",
+        "ano",
+        "pedra_encoded",
+        "genero_encoded",
+        "indicadores_baixos",
+        "target",
     ]
     for col in int_cols:
         if col in df_features.columns:
@@ -91,10 +112,14 @@ def main():
 
     store = FeatureStore(repo_path=str(FEATURE_STORE_DIR))
     print("Applying Feast definitions...")
-    store.apply([
-        __import__("importlib").import_module("feature_store.definitions").student,
-        __import__("importlib").import_module("feature_store.definitions").student_features_view,
-    ])
+    store.apply(
+        [
+            __import__("importlib").import_module("feature_store.definitions").student,
+            __import__("importlib")
+            .import_module("feature_store.definitions")
+            .student_features_view,
+        ]
+    )
 
     print("Materializing to online store...")
     store.materialize(

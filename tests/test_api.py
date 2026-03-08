@@ -37,16 +37,30 @@ def dummy_model():
     n = 50
     # Order matches _prepare_input output (original cols, then engineered)
     feature_cols = [
-        "inde", "iaa", "ieg", "ips", "ida", "ipp", "ipv", "ian",
-        "nota_mat", "nota_por", "nota_ing", "idade",
-        "ponto_virada", "indicado_bolsa", "ano",
-        "media_notas", "nota_min",
-        "anos_na_pm", "fase_num", "pedra_encoded", "genero_encoded",
+        "inde",
+        "iaa",
+        "ieg",
+        "ips",
+        "ida",
+        "ipp",
+        "ipv",
+        "ian",
+        "nota_mat",
+        "nota_por",
+        "nota_ing",
+        "idade",
+        "ponto_virada",
+        "indicado_bolsa",
+        "ano",
+        "media_notas",
+        "nota_min",
+        "anos_na_pm",
+        "fase_num",
+        "pedra_encoded",
+        "genero_encoded",
         "indicadores_baixos",
     ]
-    X = pd.DataFrame(
-        {col: np.random.uniform(0, 10, n) for col in feature_cols}
-    )
+    X = pd.DataFrame({col: np.random.uniform(0, 10, n) for col in feature_cols})
     y = pd.Series(np.random.choice([0, 1], n))
 
     model = Pipeline([("scaler", StandardScaler()), ("clf", LogisticRegression())])
@@ -123,26 +137,34 @@ class TestPredict:
         response = client_with_model.post("/api/v1/predict", json=sample_student_input)
         assert response.status_code == 401
 
-    def test_predict_invalid_token_returns_401(self, client_with_model, sample_student_input):
+    def test_predict_invalid_token_returns_401(
+        self, client_with_model, sample_student_input
+    ):
         headers = {"Authorization": "Bearer invalidtoken"}
         response = client_with_model.post(
             "/api/v1/predict", json=sample_student_input, headers=headers
         )
         assert response.status_code == 401
 
-    def test_predict_no_model_returns_503(self, client, auth_headers, sample_student_input):
+    def test_predict_no_model_returns_503(
+        self, client, auth_headers, sample_student_input
+    ):
         response = client.post(
             "/api/v1/predict", json=sample_student_input, headers=auth_headers
         )
         assert response.status_code == 503
 
-    def test_predict_returns_200(self, client_with_model, auth_headers, sample_student_input):
+    def test_predict_returns_200(
+        self, client_with_model, auth_headers, sample_student_input
+    ):
         response = client_with_model.post(
             "/api/v1/predict", json=sample_student_input, headers=auth_headers
         )
         assert response.status_code == 200
 
-    def test_predict_response_schema(self, client_with_model, auth_headers, sample_student_input):
+    def test_predict_response_schema(
+        self, client_with_model, auth_headers, sample_student_input
+    ):
         data = client_with_model.post(
             "/api/v1/predict", json=sample_student_input, headers=auth_headers
         ).json()

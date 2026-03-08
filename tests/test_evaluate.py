@@ -42,7 +42,13 @@ class TestEvaluateModel:
     def test_contains_expected_keys(self, trained_model_and_data):
         model, X_test, y_test = trained_model_and_data
         metrics = evaluate_model(model, X_test, y_test)
-        expected_keys = {"f1_weighted", "f1_macro", "accuracy", "precision_weighted", "recall_weighted"}
+        expected_keys = {
+            "f1_weighted",
+            "f1_macro",
+            "accuracy",
+            "precision_weighted",
+            "recall_weighted",
+        }
         assert expected_keys <= set(metrics.keys())
 
     def test_auc_roc_present(self, trained_model_and_data):
@@ -102,7 +108,9 @@ class TestCompareModels:
         model1 = Pipeline([("scaler", StandardScaler()), ("clf", LogisticRegression())])
         model1.fit(X, y)
 
-        model2 = Pipeline([("scaler", StandardScaler()), ("clf", LogisticRegression(C=0.001))])
+        model2 = Pipeline(
+            [("scaler", StandardScaler()), ("clf", LogisticRegression(C=0.001))]
+        )
         model2.fit(X, y)
 
         X_test = pd.DataFrame({"a": np.random.randn(20), "b": np.random.randn(20)})

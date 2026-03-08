@@ -38,7 +38,9 @@ async def lifespan(app: FastAPI):
         else:
             span.set_attribute("model.loaded", False)
             span.set_status(StatusCode.ERROR, "Model file not found")
-            logger.warning(f"Model not found at {model_path}. /predict will return 503.")
+            logger.warning(
+                f"Model not found at {model_path}. /predict will return 503."
+            )
 
     # Initialize Feature Store (if enabled)
     init_feature_store()

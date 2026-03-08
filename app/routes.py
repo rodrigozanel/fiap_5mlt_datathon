@@ -2,9 +2,7 @@
 
 import os
 import time
-from datetime import datetime, timezone
 
-import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
 from opentelemetry.trace import StatusCode
@@ -23,10 +21,7 @@ from src.feature_engineering import (
     create_academic_features,
     create_context_features,
     create_engagement_features,
-    encode_gender,
-    encode_pedra,
 )
-from src.preprocessing import PEDRA_ORDER
 from src.utils import get_logger
 
 logger = get_logger("api.routes")
@@ -53,6 +48,7 @@ def init_feature_store():
     if USE_FEATURE_STORE:
         try:
             from feast import FeatureStore
+
             _feature_store = FeatureStore(repo_path="/app/feature_store")
             logger.info("Feast Feature Store initialized")
         except Exception as e:

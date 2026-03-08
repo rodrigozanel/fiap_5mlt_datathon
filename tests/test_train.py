@@ -14,6 +14,7 @@ from src.train import _get_model, load_model, save_model, train_model
 def _lgbm_available() -> bool:
     try:
         import lightgbm  # noqa: F401
+
         return True
     except (ImportError, OSError):
         return False
@@ -22,6 +23,7 @@ def _lgbm_available() -> bool:
 def _xgb_available() -> bool:
     try:
         from xgboost import XGBClassifier  # noqa: F401
+
         XGBClassifier()  # triggers libomp load
         return True
     except (ImportError, OSError, Exception):
