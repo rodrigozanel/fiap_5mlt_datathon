@@ -37,6 +37,10 @@ services:
         condition: service_started
       dashboard:
         condition: service_healthy
+      mlflow:
+        condition: service_healthy
+      signoz:
+        condition: service_healthy
     networks:
       - app-network
     restart: unless-stopped
@@ -91,6 +95,12 @@ services:
     networks:
       - app-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
 
   # ==========================================================================
   # Web UI
