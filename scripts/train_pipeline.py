@@ -104,7 +104,7 @@ def main() -> None:
                 X, y, test_size=0.2, stratify=y, random_state=42
             )
             print(f"[Feature Store] Stratified split: train={len(X_train)}, test={len(X_test)}")
-        print(f"[Feature Store] Data loaded successfully\n")
+        print("[Feature Store] Data loaded successfully\n")
     else:
         xlsx_path = DATA_DIR / "raw" / DATA_FILE
         if not xlsx_path.exists():
